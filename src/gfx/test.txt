@@ -1,0 +1,1 @@
+The SynOS Sonic Media Player, designed with the Atmo design language using Cirrus icons.
