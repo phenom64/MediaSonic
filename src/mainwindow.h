@@ -26,6 +26,8 @@
 #include <QStandardItemModel>
 #include "flow.h"
 #include "mediaplayer.h"
+#include "topbar.h"
+#include <QStackedWidget>
 
 class QTableView;
 class QSplitter;
@@ -56,11 +58,13 @@ private:
     void scanDirectory(const QString &path);
 
     // Main UI components
+    TopBar *topBar;
     QSplitter *mainSplitter;
     QSplitter *rightSplitter;
     QTreeView *sidebar;
+    QStackedWidget *mainViewStack;
     QTableView *trackListView;
-    KDFM::Flow *coverFlow;
+    Flow *coverFlow;
 
     // Models
     QStandardItemModel *sidebarModel;

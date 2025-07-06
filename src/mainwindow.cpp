@@ -20,8 +20,9 @@
  */
 
 #include "mainwindow.h"
-#include "aboutdialog.h"
+#include "dialogs/aboutInfo.h"
 #include <QApplication>
+#include <QMainWindow>
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
@@ -36,21 +37,29 @@
 #include <QSlider>
 #include <QHBoxLayout>
 #include <QMediaMetaData>
+#include <QMediaContent>
+#include <QTime>
 #include <QDirIterator>
 #include <QtConcurrent/QtConcurrent>
+#include "topbar.h"
+#include <QStackedWidget>
+#include <QWidget>
+#include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setupUi();
-    setupMenuBar();
-    createModels();
-
+    
+    // Create MediaPlayer BEFORE setupMenuBar
     mediaPlayer = new MediaPlayer(this);
     connect(mediaPlayer, &MediaPlayer::currentMediaChanged, this, &MainWindow::updateTrackInfo);
     connect(mediaPlayer, &MediaPlayer::durationChanged, this, &MainWindow::updateDuration);
     connect(mediaPlayer, &MediaPlayer::positionChanged, this, &MainWindow::updatePosition);
     connect(timeSlider, &QSlider::sliderMoved, this, &MainWindow::seek);
+    
+    setupMenuBar();
+    createModels();
 }
 
 MainWindow::~MainWindow()
@@ -59,42 +68,68 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupUi()
 {
-    setWindowTitle("Music");
-    resize(1024, 768);
+    setWindowTitle("MediaSonic");
+    resize(1200, 800);
 
-    // Main layout
+    // Central widget and main layout
+    QWidget *central = new QWidget(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(central);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+
+    // TopBar (new skeuomorphic control bar)
+    topBar = new TopBar(this);
+    mainLayout->addWidget(topBar);
+
+    // Main splitter (sidebar + main view)
     mainSplitter = new QSplitter(Qt::Horizontal, this);
-    setCentralWidget(mainSplitter);
+    mainSplitter->setChildrenCollapsible(false);
 
     // Sidebar
     sidebar = new QTreeView(mainSplitter);
     sidebar->setHeaderHidden(true);
-    sidebar->setFixedWidth(200);
+    sidebar->setFixedWidth(220);
+    // TODO: Custom delegate for skeuomorphic gradient and selection
 
-    // Right side (Cover Flow and Track List)
-    rightSplitter = new QSplitter(Qt::Vertical, mainSplitter);
+    // Main view stack (List, Album, Cover Flow)
+    mainViewStack = new QStackedWidget(mainSplitter);
 
-    // Cover Flow
-    coverFlow = new KDFM::Flow(rightSplitter);
-
-    // Track List
-    trackListView = new QTableView(rightSplitter);
+    // --- List View ---
+    QWidget *listView = new QWidget();
+    QVBoxLayout *listLayout = new QVBoxLayout(listView);
+    // TODO: Add column browser (genre/artist/album) here
+    trackListView = new QTableView();
     trackListView->setSelectionBehavior(QAbstractItemView::SelectRows);
     trackListView->horizontalHeader()->setStretchLastSection(true);
     trackListView->verticalHeader()->setVisible(false);
     trackListView->setShowGrid(false);
+    listLayout->addWidget(trackListView);
+    mainViewStack->addWidget(listView);
 
-    rightSplitter->addWidget(coverFlow);
-    rightSplitter->addWidget(trackListView);
-    rightSplitter->setStretchFactor(0, 1);
-    rightSplitter->setStretchFactor(1, 1);
+    // --- Album View ---
+    QWidget *albumView = new QWidget();
+    // TODO: Implement grid of album covers
+    mainViewStack->addWidget(albumView);
 
+    // --- Cover Flow View ---
+    QWidget *coverFlowView = new QWidget();
+    QVBoxLayout *coverFlowLayout = new QVBoxLayout(coverFlowView);
+    coverFlow = new Flow();
+    QTableView *coverFlowTrackList = new QTableView();
+    coverFlowLayout->addWidget(coverFlow);
+    coverFlowLayout->addWidget(coverFlowTrackList);
+    mainViewStack->addWidget(coverFlowView);
+
+    // Add sidebar and main view stack to splitter
     mainSplitter->addWidget(sidebar);
-    mainSplitter->addWidget(rightSplitter);
+    mainSplitter->addWidget(mainViewStack);
     mainSplitter->setStretchFactor(0, 0);
     mainSplitter->setStretchFactor(1, 1);
 
-    // Status Bar
+    mainLayout->addWidget(mainSplitter, 1);
+    setCentralWidget(central);
+
+    // Status Bar (optional, for legacy info)
     QStatusBar *statusBar = new QStatusBar(this);
     setStatusBar(statusBar);
 
@@ -108,6 +143,14 @@ void MainWindow::setupUi()
     statusBarLayout->addWidget(timeSlider, 2);
     statusBarLayout->addWidget(timeLabel);
     statusBar->addPermanentWidget(statusBarWidget, 1);
+
+    // Connect TopBar view switcher
+    connect(topBar, &TopBar::viewSwitched, this, [this](int idx) {
+        mainViewStack->setCurrentIndex(idx);
+    });
+
+    // TODO: Connect TopBar playback controls, volume, LCD, search, etc.
+    // TODO: Implement skeuomorphic QSS and custom painting for all widgets
 }
 
 void MainWindow::setupMenuBar()
@@ -178,9 +221,8 @@ void MainWindow::createModels()
 
     // Cover Flow Model
     coverFlowModel = new QStandardItemModel(this);
-    // The flow widget from DocSurf seems to use a specific model type.
-    // This will need careful integration. For now, we'll use a standard model.
-    // coverFlow->setModel(coverFlowModel);
+    coverFlowModel->setHorizontalHeaderLabels({"Album", "Artist", "Year"});
+    coverFlow->setModel(coverFlowModel);
 }
 
 void MainWindow::openFiles()
@@ -212,7 +254,7 @@ void MainWindow::scanDirectory(const QString &path)
 
 void MainWindow::about()
 {
-    AboutDialog aboutDialog(this);
+    AboutInfo aboutDialog(this);
     aboutDialog.exec();
 }
 

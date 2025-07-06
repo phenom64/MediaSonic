@@ -13,7 +13,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find necessary Qt5 packages
-find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia Concurrent Xml REQUIRED)
+find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Concurrent Xml REQUIRED)
+list(APPEND CMAKE_MODULE_PATH "/usr/share/ECM/modules")
+list(APPEND CMAKE_MODULE_PATH "/usr/share/ECM/find-modules")
 find_package(KF5 COMPONENTS I18n CoreAddons WidgetsAddons REQUIRED)
 
 # Automatically run moc, uic, and rcc for build automation
@@ -23,32 +25,35 @@ set(CMAKE_AUTORCC ON)
 
 # Define the source files for the project
 set(PROJECT_SOURCES
-    main.cpp
-    application.cpp
-    application.h
-    mainwindow.cpp
-    mainwindow.h
-    mediaplayer.cpp
-    mediaplayer.h
+    src/main.cpp
+    src/application.cpp
+    src/application.h
+    src/mainwindow.cpp
+    src/mainwindow.h
+    src/mediaplayer.cpp
+    src/mediaplayer.h
     # Custom Widgets
-    lcddisplay.cpp
-    lcddisplay.h
-    topbar.cpp
-    topbar.h
-    sidebar.cpp
-    sidebar.h
+    src/lcddisplay.cpp
+    src/lcddisplay.h
+    src/topbar.cpp
+    src/topbar.h
+    src/sidebar.cpp
+    src/sidebar.h
     # Dialogs
-    dialogs/aboutinfo.cpp
-    dialogs/aboutinfo.h
+    src/dialogs/aboutInfo.cpp
+    src/dialogs/aboutInfo.h
     # Cover Flow (from DocSurf)
-    flow.cpp
-    flow.h
+    src/flow.cpp
+    src/flow.h
     # Resources
-    resources.qrc
+    src/resources.qrc
 )
 
 # Add an executable for MediaSonic
 add_executable(MediaSonic ${PROJECT_SOURCES})
+
+# Add the src directory to the include path
+target_include_directories(MediaSonic PRIVATE src)
 
 # Link the necessary libraries
 target_link_libraries(MediaSonic
@@ -56,6 +61,7 @@ target_link_libraries(MediaSonic
     Qt5::Gui
     Qt5::Widgets
     Qt5::Multimedia
+    Qt5::MultimediaWidgets
     Qt5::Concurrent
     Qt5::Xml
     KF5::I18n

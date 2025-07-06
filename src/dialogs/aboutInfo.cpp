@@ -46,11 +46,8 @@ void AboutInfo::setupUi()
     layout->setAlignment(Qt::AlignCenter);
 
     QLabel *iconLabel = new QLabel(this);
-    // We should create an icon for the SynOS music player here and add it to resources
-    // QPixmap iconPixmap(":/icons/music_player.png");
-    // iconLabel->setPixmap(iconPixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    iconLabel->setText("♫"); // Placeholder icon
-    iconLabel->setStyleSheet("font-size: 64px;");
+    QPixmap iconPixmap(":/gfx/MediaSonic.png");
+    iconLabel->setPixmap(iconPixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     iconLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(iconLabel);
 

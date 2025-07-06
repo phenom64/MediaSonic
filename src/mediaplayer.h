@@ -25,6 +25,7 @@
 #include <QObject>
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
+#include <QMediaMetaData>
 
 class MediaPlayer : public QObject
 {
@@ -33,7 +34,7 @@ public:
     explicit MediaPlayer(QObject *parent = nullptr);
 
     void addToPlaylist(const QUrl &url);
-    QVariant metaData(QMediaMetaData::Key key) const;
+    QVariant metaData(const QString &key) const;
     qint64 duration() const;
     qint64 position() const;
 

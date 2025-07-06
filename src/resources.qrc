@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/gfx/icons/">
+        <file>gfx/icons/music.png</file>
+        <file>gfx/icons/movies.png</file>
+        <file>gfx/icons/tv.png</file>
+        <file>gfx/icons/podcasts.png</file>
+        <file>gfx/icons/audiobooks.png</file>
+        <file>gfx/icons/recent.png</file>
+        <file>gfx/icons/recent_played.png</file>
+        <file>gfx/icons/top25.png</file>
+        <file>gfx/icons/play.png</file>
+        <file>gfx/icons/pause.png</file>
+        <file>gfx/icons/stop.png</file>
+        <file>gfx/icons/previous.png</file>
+        <file>gfx/icons/next.png</file>
+        <file>gfx/icons/volume.png</file>
+        <file>gfx/icons/search.png</file>
+        <file>gfx/icons/list_view.png</file>
+        <file>gfx/icons/album_view.png</file>
+        <file>gfx/icons/cover_flow.png</file>
+        <file>gfx/MediaSonic.png</file>
+    </qresource>
+</RCC> 

@@ -52,7 +52,7 @@ void MediaPlayer::stop()
     player->stop();
 }
 
-QVariant MediaPlayer::metaData(QMediaMetaData::Key key) const
+QVariant MediaPlayer::metaData(const QString &key) const
 {
     return player->metaData(key);
 }
