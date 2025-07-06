@@ -38,10 +38,9 @@ First, install dependencies:
 sudo apt update && sudo apt install -y \
     build-essential \
     cmake \
-    qt5-default \
     qtbase5-dev \
-    qtmultimedia5-dev \
     qtbase5-dev-tools \
+    qtmultimedia5-dev \
     libqt5multimedia5-plugins \
     libkf5i18n-dev \
     libkf5coreaddons-dev \
@@ -53,8 +52,7 @@ And then proceed to clone and build from source:
 ```bash
 git clone https://github.com/phenom64/MediaSonic.git
 cd MediaSonic
-mkdir build
-cd build
+mkdir build && cd build
 cmake ../ -DCMAKE_INSTALL_PREFIX=/usr
 make -j$(nproc)
 sudo make install
