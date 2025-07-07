@@ -33,11 +33,26 @@ Currently in very early alpha, MediaSonic is a work in progress and is being act
 ## 💾 Installation
 Installation has been tested on SynOS Canora (Beta 1) and should work on all Debian/Ubuntu-based Linux distributions with a Qt 5 based desktop environment.
 
+First, install dependencies:
+```bash
+sudo apt update && sudo apt install -y \
+    build-essential \
+    cmake \
+    qtbase5-dev \
+    qtbase5-dev-tools \
+    qtmultimedia5-dev \
+    libqt5multimedia5-plugins \
+    libkf5i18n-dev \
+    libkf5coreaddons-dev \
+    libkf5widgetsaddons-dev \
+    extra-cmake-modules
+```
+And then proceed to clone and build from source:
+
 ```bash
 git clone https://github.com/phenom64/MediaSonic.git
 cd MediaSonic
-mkdir build
-cd build
+mkdir build && cd build
 cmake ../ -DCMAKE_INSTALL_PREFIX=/usr
 make -j$(nproc)
 sudo make install
