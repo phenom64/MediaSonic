@@ -1,0 +1,115 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-e78cf4e765e5972ab283.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "MediaSonic",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "KF5CoreAddons_QCH::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-KF5CoreAddons_QCH-Debug-e396712e8ed56d6cdbc8.json",
+					"name" : "KF5CoreAddons_QCH",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "KF5I18n_QCH::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-KF5I18n_QCH-Debug-16485bd8a95a45131ae5.json",
+					"name" : "KF5I18n_QCH",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "KF5WidgetsAddons_QCH::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-KF5WidgetsAddons_QCH-Debug-a97240edbd46e3181950.json",
+					"name" : "KF5WidgetsAddons_QCH",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "MediaSonic::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-MediaSonic-Debug-898e0b63bd99b6cd8241.json",
+					"name" : "MediaSonic",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "MediaSonic_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-MediaSonic_autogen-Debug-5b1f494a60fa65e62494.json",
+					"name" : "MediaSonic_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "MediaSonic_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-MediaSonic_autogen_timestamp_deps-Debug-16704dd2c4cacc872ebc.json",
+					"name" : "MediaSonic_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-Debug-96546ac785604f163f90.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/phenom/MediaSonic/build",
+		"source" : "/home/phenom/MediaSonic"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

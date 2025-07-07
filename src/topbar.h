@@ -77,6 +77,7 @@ public:
     void setVolume(int volume);
     void setPlayState(bool isPlaying);
     void setCurrentView(int viewIndex);
+    LcdDisplay* getLcdDisplay() { return lcdDisplay; }
 
 signals:
     // Playback control signals

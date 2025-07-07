@@ -45,6 +45,67 @@
 #include <QStackedWidget>
 #include <QWidget>
 #include <QVBoxLayout>
+#include "sidebar.h"
+#include "lcddisplay.h"
+#include <QMediaPlayer>
+#include <QMediaPlaylist>
+#include <QStyledItemDelegate>
+#include <QPainter>
+#include <QImageReader>
+
+// StarRatingDelegate for the Rating column
+class StarRatingDelegate : public QStyledItemDelegate {
+public:
+    StarRatingDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        int rating = index.data().toInt();
+        int starCount = 5;
+        int starSize = option.rect.height() - 4;
+        int spacing = 2;
+        int x = option.rect.x() + (option.rect.width() - (starCount * starSize + (starCount - 1) * spacing)) / 2;
+        int y = option.rect.y() + 2;
+        for (int i = 0; i < starCount; ++i) {
+            QRect starRect(x + i * (starSize + spacing), y, starSize, starSize);
+            if (i < rating) {
+                painter->setBrush(QColor(255, 200, 40));
+            } else {
+                painter->setBrush(QColor(220, 220, 220));
+            }
+            painter->setPen(Qt::NoPen);
+            drawStar(painter, starRect);
+        }
+    }
+
+    bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option, const QModelIndex &index) override {
+        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            int starCount = 5;
+            int starSize = option.rect.height() - 4;
+            int spacing = 2;
+            int x = option.rect.x() + (option.rect.width() - (starCount * starSize + (starCount - 1) * spacing)) / 2;
+            int clicked = (mouseEvent->pos().x() - x) / (starSize + spacing) + 1;
+            if (clicked >= 1 && clicked <= 5) {
+                model->setData(index, clicked);
+            }
+            return true;
+        }
+        return false;
+    }
+
+private:
+    void drawStar(QPainter *painter, const QRect &rect) const {
+        static const QPointF points[10] = {
+            QPointF(0.5, 0), QPointF(0.618, 0.382), QPointF(1, 0.382), QPointF(0.691, 0.618), QPointF(0.809, 1),
+            QPointF(0.5, 0.764), QPointF(0.191, 1), QPointF(0.309, 0.618), QPointF(0, 0.382), QPointF(0.382, 0.382)
+        };
+        QPolygonF star;
+        for (int i = 0; i < 10; ++i) {
+            star << QPointF(rect.x() + points[i].x() * rect.width(), rect.y() + points[i].y() * rect.height());
+        }
+        painter->drawPolygon(star);
+    }
+};
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -53,10 +114,23 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Create MediaPlayer BEFORE setupMenuBar
     mediaPlayer = new MediaPlayer(this);
-    connect(mediaPlayer, &MediaPlayer::currentMediaChanged, this, &MainWindow::updateTrackInfo);
-    connect(mediaPlayer, &MediaPlayer::durationChanged, this, &MainWindow::updateDuration);
-    connect(mediaPlayer, &MediaPlayer::positionChanged, this, &MainWindow::updatePosition);
-    connect(timeSlider, &QSlider::sliderMoved, this, &MainWindow::seek);
+    // Connect MediaPlayer signals to TopBar
+    connect(mediaPlayer, &MediaPlayer::currentMediaChanged, topBar, [this](const QMediaContent &content) {
+        QString title = mediaPlayer->metaData(QMediaMetaData::Title).toString();
+        QString artist = mediaPlayer->metaData(QMediaMetaData::AlbumArtist).toString();
+        if (title.isEmpty() && !content.isNull()) {
+            title = content.request().url().fileName();
+        }
+        topBar->setTrackInfo(title, artist);
+    });
+    connect(mediaPlayer, &MediaPlayer::durationChanged, topBar, [this](qint64 duration) {
+        topBar->setDuration(duration);
+    });
+    connect(mediaPlayer, &MediaPlayer::positionChanged, topBar, [this](qint64 position) {
+        topBar->setPosition(position);
+    });
+    // Connect LcdDisplay seekChanged to mediaPlayer->setPosition using public getter
+    connect(topBar->getLcdDisplay(), &LcdDisplay::seekChanged, mediaPlayer, &MediaPlayer::setPosition);
     
     setupMenuBar();
     createModels();
@@ -77,7 +151,7 @@ void MainWindow::setupUi()
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // TopBar (new skeuomorphic control bar)
+    // TopBar (all playback controls/info go here)
     topBar = new TopBar(this);
     mainLayout->addWidget(topBar);
 
@@ -85,11 +159,12 @@ void MainWindow::setupUi()
     mainSplitter = new QSplitter(Qt::Horizontal, this);
     mainSplitter->setChildrenCollapsible(false);
 
-    // Sidebar
-    sidebar = new QTreeView(mainSplitter);
-    sidebar->setHeaderHidden(true);
+    // Sidebar (use custom Sidebar widget)
+    sidebar = new Sidebar(mainSplitter);
     sidebar->setFixedWidth(220);
-    // TODO: Custom delegate for skeuomorphic gradient and selection
+    connect(static_cast<Sidebar*>(sidebar), &Sidebar::itemSelected, this, [this](const QString &category, const QString &item) {
+        // TODO: Handle sidebar item selection
+    });
 
     // Main view stack (List, Album, Cover Flow)
     mainViewStack = new QStackedWidget(mainSplitter);
@@ -97,7 +172,6 @@ void MainWindow::setupUi()
     // --- List View ---
     QWidget *listView = new QWidget();
     QVBoxLayout *listLayout = new QVBoxLayout(listView);
-    // TODO: Add column browser (genre/artist/album) here
     trackListView = new QTableView();
     trackListView->setSelectionBehavior(QAbstractItemView::SelectRows);
     trackListView->horizontalHeader()->setStretchLastSection(true);
@@ -108,7 +182,6 @@ void MainWindow::setupUi()
 
     // --- Album View ---
     QWidget *albumView = new QWidget();
-    // TODO: Implement grid of album covers
     mainViewStack->addWidget(albumView);
 
     // --- Cover Flow View ---
@@ -129,28 +202,24 @@ void MainWindow::setupUi()
     mainLayout->addWidget(mainSplitter, 1);
     setCentralWidget(central);
 
-    // Status Bar (optional, for legacy info)
+    // Status Bar (summary only)
     QStatusBar *statusBar = new QStatusBar(this);
     setStatusBar(statusBar);
+    statusBar->showMessage("No music loaded"); // Placeholder, update as needed
 
-    trackInfoLabel = new QLabel("No song playing", statusBar);
-    timeSlider = new QSlider(Qt::Horizontal, statusBar);
-    timeLabel = new QLabel("00:00 / 00:00", statusBar);
-
-    QWidget *statusBarWidget = new QWidget();
-    QHBoxLayout *statusBarLayout = new QHBoxLayout(statusBarWidget);
-    statusBarLayout->addWidget(trackInfoLabel, 1);
-    statusBarLayout->addWidget(timeSlider, 2);
-    statusBarLayout->addWidget(timeLabel);
-    statusBar->addPermanentWidget(statusBarWidget, 1);
-
-    // Connect TopBar view switcher
     connect(topBar, &TopBar::viewSwitched, this, [this](int idx) {
         mainViewStack->setCurrentIndex(idx);
     });
 
-    // TODO: Connect TopBar playback controls, volume, LCD, search, etc.
-    // TODO: Implement skeuomorphic QSS and custom painting for all widgets
+    connect(trackListView, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {
+        if (!index.isValid()) return;
+        int row = index.row();
+        QMediaPlaylist* playlist = mediaPlayer->getPlaylist();
+        if (playlist && row >= 0 && row < playlist->mediaCount()) {
+            playlist->setCurrentIndex(row);
+            mediaPlayer->play();
+        }
+    });
 }
 
 void MainWindow::setupMenuBar()
@@ -160,8 +229,10 @@ void MainWindow::setupMenuBar()
 
     // File Menu
     QMenu *fileMenu = menuBar->addMenu(tr("&File"));
-    QAction *openAction = fileMenu->addAction(tr("&Add Folder to Library..."));
-    connect(openAction, &QAction::triggered, this, &MainWindow::openFiles);
+    QAction *addToLibraryAction = new QAction(tr("Add to Library..."), this);
+    addToLibraryAction->setShortcut(QKeySequence::Open);
+    connect(addToLibraryAction, &QAction::triggered, this, &MainWindow::openFiles);
+    fileMenu->addAction(addToLibraryAction);
     fileMenu->addSeparator();
     QAction *exitAction = fileMenu->addAction(tr("E&xit"));
     connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
@@ -202,22 +273,24 @@ void MainWindow::setupMenuBar()
 
 void MainWindow::createModels()
 {
-    // Sidebar Model
-    sidebarModel = new QStandardItemModel(this);
-    QStandardItem *library = new QStandardItem("LIBRARY");
-    library->setFlags(library->flags() & ~Qt::ItemIsEditable);
-    sidebarModel->appendRow(library);
-
-    QStandardItem *music = new QStandardItem("Music");
-    music->setFlags(music->flags() & ~Qt::ItemIsEditable);
-    library->appendRow(music);
-
-    sidebar->setModel(sidebarModel);
-
+    // Sidebar Model is now handled by Sidebar widget itself
     // Track List Model
     trackListModel = new QStandardItemModel(this);
-    trackListModel->setHorizontalHeaderLabels({"Name", "Time", "Artist", "Album"});
+    trackListModel->setHorizontalHeaderLabels({"Name", "Time", "Artist", "Album", "Genre", "Rating", "Plays"});
     trackListView->setModel(trackListModel);
+    trackListView->setAlternatingRowColors(true);
+    trackListView->setSortingEnabled(true);
+    trackListView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    trackListView->setShowGrid(false);
+    trackListView->horizontalHeader()->setStretchLastSection(true);
+    trackListView->verticalHeader()->setDefaultSectionSize(22); // Compact row height
+    // Add custom delegate for star rating in Rating column
+    trackListView->setItemDelegateForColumn(5, new StarRatingDelegate(trackListView));
+
+    // Album View Model (simple: album name, artist, cover art)
+    albumViewModel = new QStandardItemModel(this);
+    // For now, just one column for album art and info
+    // TODO: Use a QListView or QTableView in album view and set this model
 
     // Cover Flow Model
     coverFlowModel = new QStandardItemModel(this);
@@ -227,75 +300,68 @@ void MainWindow::createModels()
 
 void MainWindow::openFiles()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"), "/home", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"), QDir::homePath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (!dir.isEmpty()) {
-        QtConcurrent::run(this, &MainWindow::scanDirectory, dir);
+        scanDirectory(dir);
     }
 }
 
 void MainWindow::scanDirectory(const QString &path)
 {
-    QDirIterator it(path, {"*.mp3", "*.flac", "*.m4a"}, QDir::Files, QDirIterator::Subdirectories);
+    QDirIterator it(path, QStringList() << "*.mp3" << "*.flac" << "*.m4a" << "*.wav" << "*.ogg", QDir::Files, QDirIterator::Subdirectories);
+    QSet<QString> albumsAdded;
     while (it.hasNext()) {
         QString filePath = it.next();
         mediaPlayer->addToPlaylist(QUrl::fromLocalFile(filePath));
 
         QFileInfo fileInfo(filePath);
         QList<QStandardItem *> rowItems;
-        rowItems << new QStandardItem(fileInfo.baseName());
-        rowItems << new QStandardItem(""); // Duration placeholder
-        rowItems << new QStandardItem(""); // Artist placeholder
-        rowItems << new QStandardItem(""); // Album placeholder
+        rowItems << new QStandardItem(fileInfo.baseName()); // Name
+        rowItems << new QStandardItem(""); // Time
+        rowItems << new QStandardItem(""); // Artist
+        rowItems << new QStandardItem(""); // Album
+        rowItems << new QStandardItem(""); // Genre
+        rowItems << new QStandardItem(""); // Rating
+        rowItems << new QStandardItem("0"); // Plays
+        trackListModel->appendRow(rowItems);
 
-        QMetaObject::invokeMethod(trackListModel, "appendRow", Qt::QueuedConnection, Q_ARG(QList<QStandardItem*>, rowItems));
+        // --- Album View & Cover Flow population ---
+        // Try to extract metadata (album, artist, cover art)
+        QMediaPlayer tempPlayer;
+        tempPlayer.setMedia(QUrl::fromLocalFile(filePath));
+        tempPlayer.stop(); // Just to load metadata
+        QString album = tempPlayer.metaData(QMediaMetaData::AlbumTitle).toString();
+        QString artist = tempPlayer.metaData(QMediaMetaData::AlbumArtist).toString();
+        QString year = tempPlayer.metaData(QMediaMetaData::Year).toString();
+        QVariant coverArt = tempPlayer.metaData(QMediaMetaData::CoverArtImage);
+        if (!album.isEmpty() && !albumsAdded.contains(album)) {
+            QStandardItem *albumItem = new QStandardItem(album);
+            albumItem->setData(artist, Qt::UserRole + 1);
+            if (coverArt.isValid()) {
+                QPixmap pixmap = coverArt.value<QPixmap>();
+                if (!pixmap.isNull()) {
+                    albumItem->setIcon(pixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                } else {
+                    // Use placeholder
+                    albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(64, 64));
+                }
+            } else {
+                albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(64, 64));
+            }
+            albumViewModel->appendRow(albumItem);
+            albumsAdded.insert(album);
+        }
+        // Cover Flow
+        QList<QStandardItem*> coverRow;
+        coverRow << new QStandardItem(album);
+        coverRow << new QStandardItem(artist);
+        coverRow << new QStandardItem(year);
+        coverFlowModel->appendRow(coverRow);
     }
 }
-
 
 void MainWindow::about()
 {
     AboutInfo aboutDialog(this);
     aboutDialog.exec();
-}
-
-void MainWindow::updateTrackInfo(const QMediaContent &content)
-{
-    if (!content.isNull()) {
-        QString title = mediaPlayer->metaData(QMediaMetaData::Title).toString();
-        QString artist = mediaPlayer->metaData(QMediaMetaData::AlbumArtist).toString();
-        if (title.isEmpty()) {
-            title = content.request().url().fileName();
-        }
-        trackInfoLabel->setText(QString("%1 by %2").arg(title, artist));
-    } else {
-        trackInfoLabel->setText("No song playing");
-    }
-}
-
-void MainWindow::updateDuration(qint64 duration)
-{
-    timeSlider->setRange(0, duration / 1000);
-    updatePosition(mediaPlayer->position());
-}
-
-void MainWindow::updatePosition(qint64 position)
-{
-    qint64 duration = mediaPlayer->duration();
-    if (position > duration) {
-        position = duration;
-    }
-    timeSlider->setValue(position / 1000);
-
-    QTime currentTime((position / 3600000) % 60, (position / 60000) % 60, (position / 1000) % 60);
-    QTime totalTime((duration / 3600000) % 60, (duration / 60000) % 60, (duration / 1000) % 60);
-    QString format = "mm:ss";
-    if (duration > 3600000) {
-        format = "hh:mm:ss";
-    }
-    timeLabel->setText(currentTime.toString(format) + " / " + totalTime.toString(format));
-}
-
-void MainWindow::seek(int seconds)
-{
-    mediaPlayer->setPosition(seconds * 1000);
 }

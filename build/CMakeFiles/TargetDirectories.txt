@@ -1,0 +1,13 @@
+/home/phenom/MediaSonic/build/CMakeFiles/KF5I18n_QCH.dir
+/home/phenom/MediaSonic/build/CMakeFiles/KF5CoreAddons_QCH.dir
+/home/phenom/MediaSonic/build/CMakeFiles/KF5WidgetsAddons_QCH.dir
+/home/phenom/MediaSonic/build/CMakeFiles/MediaSonic.dir
+/home/phenom/MediaSonic/build/CMakeFiles/uninstall.dir
+/home/phenom/MediaSonic/build/CMakeFiles/edit_cache.dir
+/home/phenom/MediaSonic/build/CMakeFiles/rebuild_cache.dir
+/home/phenom/MediaSonic/build/CMakeFiles/list_install_components.dir
+/home/phenom/MediaSonic/build/CMakeFiles/install.dir
+/home/phenom/MediaSonic/build/CMakeFiles/install/local.dir
+/home/phenom/MediaSonic/build/CMakeFiles/install/strip.dir
+/home/phenom/MediaSonic/build/CMakeFiles/MediaSonic_autogen_timestamp_deps.dir
+/home/phenom/MediaSonic/build/CMakeFiles/MediaSonic_autogen.dir

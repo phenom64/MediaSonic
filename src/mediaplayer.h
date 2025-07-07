@@ -37,7 +37,7 @@ public:
     QVariant metaData(const QString &key) const;
     qint64 duration() const;
     qint64 position() const;
-
+    QMediaPlaylist* getPlaylist();
 
 public slots:
     void play();

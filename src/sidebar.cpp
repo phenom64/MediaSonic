@@ -110,32 +110,66 @@ void Sidebar::setupDefaultItems()
     addLibraryItem("Music", QIcon(":/gfx/icons/music.png"));
     addLibraryItem("Movies", QIcon(":/gfx/icons/movies.png"));
     addLibraryItem("TV Shows", QIcon(":/gfx/icons/tv.png"));
-    addLibraryItem("Podcasts", QIcon(":/gfx/icons/podcasts.png"));
-    addLibraryItem("Audiobooks", QIcon(":/gfx/icons/audiobooks.png"));
+    addLibraryItem("Radio", QIcon(":/gfx/icons/radio.png"));
+
+    // SHARED section
+    QStandardItem *sharedHeader = new QStandardItem("SHARED");
+    sharedHeader->setFlags(sharedHeader->flags() & ~Qt::ItemIsSelectable);
+    model->appendRow(sharedHeader);
+    QStandardItem *homeSharing = new QStandardItem(QIcon(":/gfx/icons/home_sharing.png"), "Home Sharing");
+    homeSharing->setData("shared", Qt::UserRole);
+    sharedHeader->appendRow(homeSharing);
+
+    // GENIUS section
+    QStandardItem *geniusHeader = new QStandardItem("GENIUS");
+    geniusHeader->setFlags(geniusHeader->flags() & ~Qt::ItemIsSelectable);
+    model->appendRow(geniusHeader);
+    QStandardItem *genius = new QStandardItem(QIcon(":/gfx/icons/genius.png"), "Genius");
+    genius->setData("genius", Qt::UserRole);
+    geniusHeader->appendRow(genius);
 
     // PLAYLISTS section
     QStandardItem *playlistsHeader = new QStandardItem("PLAYLISTS");
     playlistsHeader->setFlags(playlistsHeader->flags() & ~Qt::ItemIsSelectable);
     model->appendRow(playlistsHeader);
 
-    // Add some default playlists
+    // Add default playlists (with icons)
+    addPlaylistItem("iTunes DJ", QIcon(":/gfx/icons/dj.png"));
+    addPlaylistItem("90's Music", QIcon(":/gfx/icons/90s.png"));
+    addPlaylistItem("Classical Music", QIcon(":/gfx/icons/classical.png"));
+    addPlaylistItem("Music Videos", QIcon(":/gfx/icons/videos.png"));
+    addPlaylistItem("My Top Rated", QIcon(":/gfx/icons/top_rated.png"));
     addPlaylistItem("Recently Added", QIcon(":/gfx/icons/recent.png"));
     addPlaylistItem("Recently Played", QIcon(":/gfx/icons/recent_played.png"));
     addPlaylistItem("Top 25 Most Played", QIcon(":/gfx/icons/top25.png"));
+
+    // Example: Playlist folder (collapsed by default)
+    QStandardItem *folder = new QStandardItem(QIcon(":/gfx/icons/folder.png"), "My Playlists");
+    folder->setData("playlist_folder", Qt::UserRole);
+    playlistsHeader->appendRow(folder);
+    QStandardItem *customPlaylist = new QStandardItem(QIcon(":/gfx/icons/playlist.png"), "Custom Playlist");
+    customPlaylist->setData("playlist", Qt::UserRole);
+    folder->appendRow(customPlaylist);
 }
 
 void Sidebar::addLibraryItem(const QString &name, const QIcon &icon)
 {
     QStandardItem *item = new QStandardItem(icon, name);
     item->setData("library", Qt::UserRole);
-    model->item(0)->appendRow(item);
+    model->item(0)->appendRow(item); // LIBRARY header is always at index 0
 }
 
 void Sidebar::addPlaylistItem(const QString &name, const QIcon &icon)
 {
     QStandardItem *item = new QStandardItem(icon, name);
     item->setData("playlist", Qt::UserRole);
-    model->item(6)->appendRow(item); // 6 is the PLAYLISTS header index
+    // PLAYLISTS header index is now dynamic, so find it:
+    for (int i = 0; i < model->rowCount(); ++i) {
+        if (model->item(i)->text() == "PLAYLISTS") {
+            model->item(i)->appendRow(item);
+            break;
+        }
+    }
 }
 
 void Sidebar::paintEvent(QPaintEvent *event)

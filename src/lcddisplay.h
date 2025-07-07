@@ -81,6 +81,9 @@ private:
     QColor lcdGlowColor;
     QColor seekSliderColor;
     QColor seekSliderBackgroundColor;
+
+    // Visualizer state
+    bool visualizerActive;
 };
 
 #endif // LCDDISPLAY_H 

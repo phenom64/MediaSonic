@@ -71,3 +71,8 @@ void MediaPlayer::setPosition(qint64 position)
 {
     player->setPosition(position);
 }
+
+QMediaPlaylist* MediaPlayer::getPlaylist()
+{
+    return playlist;
+}

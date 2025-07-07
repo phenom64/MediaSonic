@@ -46,10 +46,6 @@ public:
 private slots:
     void openFiles();
     void about();
-    void updateTrackInfo(const QMediaContent &content);
-    void updateDuration(qint64 duration);
-    void updatePosition(qint64 position);
-    void seek(int seconds);
 
 private:
     void setupUi();
@@ -70,6 +66,7 @@ private:
     QStandardItemModel *sidebarModel;
     QStandardItemModel *trackListModel;
     QStandardItemModel *coverFlowModel;
+    QStandardItemModel *albumViewModel;
 
     // Media Player
     MediaPlayer *mediaPlayer;
