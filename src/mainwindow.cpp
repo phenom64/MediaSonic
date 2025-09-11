@@ -45,8 +45,10 @@
 #include <QStackedWidget>
 #include <QWidget>
 #include <QVBoxLayout>
+#include <QListView>
 #include "sidebar.h"
 #include "lcddisplay.h"
+#include "dialogs/filepicker.h"
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
 #include <QStyledItemDelegate>
@@ -303,27 +305,18 @@ void MainWindow::setupUi()
     listLayout->addWidget(trackListView);
     mainViewStack->addWidget(listView);
 
-    // --- Album View ---
+    // --- Album View (QListView in IconMode) ---
     QWidget *albumView = new QWidget();
     QVBoxLayout *albumLayout = new QVBoxLayout(albumView);
     albumLayout->setContentsMargins(10, 10, 10, 10);
     albumLayout->setSpacing(10);
-    
-    // Create scroll area for album grid
-    QScrollArea *albumScrollArea = new QScrollArea(albumView);
-    albumScrollArea->setWidgetResizable(true);
-    albumScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    albumScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    
-    // Create widget to hold the album grid
-    QWidget *albumGridWidget = new QWidget();
-    albumGridLayout = new QGridLayout(albumGridWidget);
-    albumGridLayout->setSpacing(15);
-    albumGridLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    
-    albumScrollArea->setWidget(albumGridWidget);
-    albumLayout->addWidget(albumScrollArea);
-    
+    albumListView = new QListView(albumView);
+    albumListView->setViewMode(QListView::IconMode);
+    albumListView->setResizeMode(QListView::Adjust);
+    albumListView->setMovement(QListView::Static);
+    albumListView->setSpacing(12);
+    albumListView->setIconSize(QSize(128,128));
+    albumLayout->addWidget(albumListView);
     mainViewStack->addWidget(albumView);
 
     // --- Cover Flow View ---
@@ -413,13 +406,10 @@ void MainWindow::setupMenuBar()
 
     // File Menu
     QMenu *fileMenu = menuBar->addMenu(tr("&File"));
-    QAction *addFilesAction = new QAction(tr("Add File(s)..."), this);
-    addFilesAction->setShortcut(QKeySequence::Open);
-    connect(addFilesAction, &QAction::triggered, this, &MainWindow::addFiles);
-    fileMenu->addAction(addFilesAction);
-    QAction *addFolderAction = new QAction(tr("Add Folder..."), this);
-    connect(addFolderAction, &QAction::triggered, this, &MainWindow::addFolder);
-    fileMenu->addAction(addFolderAction);
+    QAction *addLibraryAction = new QAction(tr("Add to Library..."), this);
+    addLibraryAction->setShortcut(QKeySequence::Open);
+    connect(addLibraryAction, &QAction::triggered, this, &MainWindow::addToLibrary);
+    fileMenu->addAction(addLibraryAction);
     fileMenu->addSeparator();
     QAction *exitAction = fileMenu->addAction(tr("E&xit"));
     connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
@@ -511,13 +501,30 @@ void MainWindow::createModels()
 
     // Album View Model (simple: album name, artist, cover art)
     albumViewModel = new QStandardItemModel(this);
-    // For now, just one column for album art and info
-    // TODO: Use a QListView or QTableView in album view and set this model
+    if (albumListView) albumListView->setModel(albumViewModel);
 
     // Cover Flow Model
     coverFlowModel = new QStandardItemModel(this);
     coverFlowModel->setHorizontalHeaderLabels({"Album", "Artist", "Year"});
     coverFlow->setModel(coverFlowModel);
+    // Opened album -> play first track matching album
+    connect(coverFlow, &Flow::opened, this, [this](const QModelIndex &idx){
+        if (!idx.isValid()) return;
+        QString album = coverFlowModel->index(idx.row(), 0).data().toString();
+        // Find first matching track
+        int srcRow = -1;
+        for (int r = 0; r < trackListModel->rowCount(); ++r) {
+            QModelIndex aIdx = trackListModel->index(r, MS::TrackModel::ColAlbum);
+            if (aIdx.data().toString() == album) { srcRow = r; break; }
+        }
+        if (srcRow >= 0) {
+            QMediaPlaylist *pl = mediaPlayer->getPlaylist();
+            if (pl && srcRow < pl->mediaCount()) {
+                pl->setCurrentIndex(srcRow);
+                mediaPlayer->play();
+            }
+        }
+    });
 }
 
 void MainWindow::addFiles()
@@ -566,6 +573,42 @@ void MainWindow::addFolder()
     }
 }
 
+void MainWindow::addToLibrary()
+{
+    FilePickerDialog dlg(this);
+    if (dlg.exec() != QDialog::Accepted) return;
+    QStringList files = dlg.selectedPaths();
+    if (files.isEmpty()) return;
+    if (!scanner) {
+        scanner = new MS::Scanner(this);
+        connect(scanner, &MS::Scanner::trackDiscovered, this, [this](const MS::Track &t){
+            mediaPlayer->addToPlaylist(t.url);
+            trackListModel->addTrack(t);
+            QString album = t.album;
+            QString artist = t.artist;
+            QString year = t.year ? QString::number(t.year) : QString();
+            if (!album.isEmpty()) {
+                bool found=false; for (int r=0;r<albumViewModel->rowCount();++r) if (albumViewModel->item(r)->text()==album) {found=true;break;}
+                if (!found) {
+                    QStandardItem *albumItem = new QStandardItem(album);
+                    albumItem->setData(artist, Qt::UserRole + 1);
+                    albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(128,128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                    albumViewModel->appendRow(albumItem);
+                }
+            }
+            QList<QStandardItem*> coverRow;
+            QStandardItem *albumCell = new QStandardItem(album);
+            albumCell->setData(QIcon(":/gfx/icons/music.png"), Qt::DecorationRole);
+            coverRow << albumCell;
+            coverRow << new QStandardItem(artist);
+            coverRow << new QStandardItem(year);
+            coverFlowModel->appendRow(coverRow);
+            updateStatusSummary();
+        });
+    }
+    scanner->scanPaths(files);
+}
+
 void MainWindow::scanDirectory(const QString &path)
 {
     if (!scanner) {
@@ -588,7 +631,9 @@ void MainWindow::scanDirectory(const QString &path)
                 }
             }
             QList<QStandardItem*> coverRow;
-            coverRow << new QStandardItem(album);
+            QStandardItem *albumCell = new QStandardItem(album);
+            albumCell->setData(QIcon(":/gfx/icons/music.png"), Qt::DecorationRole);
+            coverRow << albumCell;
             coverRow << new QStandardItem(artist);
             coverRow << new QStandardItem(year);
             coverFlowModel->appendRow(coverRow);

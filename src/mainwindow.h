@@ -38,6 +38,7 @@ class QSplitter;
 class QTreeView;
 class QLabel;
 class QSlider;
+class QListView;
 
 class MainWindow : public QMainWindow
 {
@@ -50,6 +51,7 @@ public:
 private slots:
     void addFiles();
     void addFolder();
+    void addToLibrary();
     void about();
 
 private:
@@ -71,9 +73,10 @@ private:
     QTreeView *sidebar;
     QStackedWidget *mainViewStack;
     QTableView *trackListView;
+    QListView *albumListView;
     QTableView *coverFlowTrackList;
     Flow *coverFlow;
-    QGridLayout *albumGridLayout;
+    QGridLayout *albumGridLayout; // legacy, unused for list view
 
     // Models
     QStandardItemModel *sidebarModel;

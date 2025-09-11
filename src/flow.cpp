@@ -198,14 +198,37 @@ void FlowItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, 
 
 void FlowItem::updateIcon()
 {
-    pix[0] = index().data(Qt::DecorationRole).value<QIcon>().pixmap(QSize(256, 256));
+    QIcon icon = index().data(Qt::DecorationRole).value<QIcon>();
+    if (!icon.isNull()) {
+        pix[0] = icon.pixmap(QSize(256, 256));
+    } else {
+        // Generate placeholder with album and hint text
+        pix[0] = QPixmap(256, 256);
+        pix[0].fill(QColor(235, 235, 235));
+        QPainter p(&pix[0]);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(Qt::black));
+        QFont f = p.font(); f.setBold(true); f.setPointSize(12); p.setFont(f);
+        QString album = index().data(Qt::DisplayRole).toString();
+        QString artist = index().sibling(index().row(), 1).data(Qt::DisplayRole).toString();
+        QString title = album.isEmpty() ? QStringLiteral("No Album") : album;
+        QRect r = pix[0].rect().adjusted(10, 20, -10, -90);
+        p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, title);
+        QFont f2 = p.font(); f2.setBold(false); f2.setPointSize(10); p.setFont(f2);
+        QRect r2 = pix[0].rect().adjusted(10, 180, -10, -20);
+        QString sub = artist.isEmpty() ? QStringLiteral("Cover art unavailable") : artist + "\nCover art unavailable";
+        p.setPen(QPen(QColor(100,100,100)));
+        p.drawText(r2, Qt::AlignCenter | Qt::TextWordWrap, sub);
+        p.end();
+    }
+    // Reflection with fade gradient
     pix[1] = pix[0].transformed(QTransform().scale(1, -1));
-    QPainter p(&pix[1]);
-    static QColor bg = preView->bg();
-    if (bg.alpha() == 0xff)
-        bg.setAlpha(222);
-    p.fillRect(pix[1].rect(), bg);
-    p.end();
+    QPainter p2(&pix[1]);
+    QLinearGradient fade(0, 0, 0, pix[1].height());
+    fade.setColorAt(0.0, QColor(0,0,0,90));
+    fade.setColorAt(1.0, QColor(0,0,0,0));
+    p2.fillRect(pix[1].rect(), fade);
+    p2.end();
     updateShape();
     dirty = false;
 }
@@ -459,16 +482,7 @@ void Flow::continueIf()
 
 void Flow::wheelEvent(QWheelEvent *event)
 {
-    if (event->modifiers() & Qt::ControlModifier)
-    {
-        if (event->angleDelta().y() > 0)
-            d->perception += 1;
-        else
-            d->perception -= 1;
-        const float &y = d->y+SIZE;
-        d->rootItem->setTransform(QTransform().translate(rect().width()/2.0f, y).rotate(d->perception, Qt::XAxis).translate(-rect().width()/2.0f, -y));
-    }
-    else if (event->modifiers() & Qt::MetaModifier)
+    if (event->modifiers() & Qt::MetaModifier)
         d->rootItem->setScale(d->rootItem->scale()+((float)event->angleDelta().y()*0.001f));
     else
         d->scrollBar->setValue(d->scrollBar->value()+(event->angleDelta().y()>0?-1:1));
@@ -750,16 +764,8 @@ void Flow::mouseDoubleClickEvent(QMouseEvent *event)
 
 void Flow::mouseMoveEvent(QMouseEvent *event)
 {
+    // Disable camera tilt by mouse drag (iTunes-like behavior)
     QGraphicsView::mouseMoveEvent(event);
-    if (!d->wantsDrag)
-        return;
-    if (event->pos().y() < d->pressPos.y())
-        d->perception -= qAbs(event->pos().y() - d->pressPos.y())*0.1;
-    else
-        d->perception += qAbs(event->pos().y() - d->pressPos.y())*0.1;
-    float y = d->y+SIZE;
-    d->rootItem->setTransform(QTransform().translate(rect().width()/2.0f, y).rotate(d->perception, Qt::XAxis).translate(-rect().width()/2.0f, -y));
-    d->pressPos = event->pos();
 }
 
 void Flow::showCenterIndex(const QModelIndex &index)

@@ -51,15 +51,24 @@ int main(int argc, char *argv[])
 {
     qInstallMessageHandler(msMessageHandler);
     qRegisterMetaType<MS::Track>("MS::Track");
+    qRegisterMetaType<QVector<float>>("QVector<float>");
     Application app(argc, argv);
     KLocalizedString::setApplicationDomain("mediasonic");
 
-    // Load DS-Digital font for LCD display
-    // Resource path note: resources.qrc uses prefix "/fonts/" and file "fonts/DS-DIGII.TTF"
-    // which results in a resource path of ":/fonts/fonts/DS-DIGII.TTF".
+    // Load DS-Digital font for LCD display. Try embedded first, then local build dir fallback
     int fontId = QFontDatabase::addApplicationFont(":/fonts/fonts/DS-DIGII.TTF");
     if (fontId == -1) {
-        // Fallback to system fonts if DS-Digital fails to load
+        QString local1 = QCoreApplication::applicationDirPath() + "/fonts/DS-DIGII.TTF";
+        fontId = QFontDatabase::addApplicationFont(local1);
+    }
+    if (fontId == -1) {
+        QString local2 = QCoreApplication::applicationDirPath() + "/../share/mediasonic/fonts/DS-DIGII.TTF";
+        fontId = QFontDatabase::addApplicationFont(local2);
+    }
+    if (fontId != -1) {
+        const QStringList fams = QFontDatabase::applicationFontFamilies(fontId);
+        if (!fams.isEmpty()) qApp->setProperty("ms.lcdfamily", fams.first());
+    } else {
         qDebug() << "Failed to load DS-Digital font, using system fallback";
     }
 

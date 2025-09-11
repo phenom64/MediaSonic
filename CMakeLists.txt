@@ -5,12 +5,38 @@
 #
 # This project is licensed under the GNU General Public License v2.0.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 project(MediaSonic VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(MS_CXX_STANDARD 17 CACHE STRING "C++ standard to use (17/20/23)")
+set_property(CACHE MS_CXX_STANDARD PROPERTY STRINGS 17 20 23)
+set(CMAKE_CXX_STANDARD ${MS_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Build options
+option(MS_DEBUG "Enable MediaSonic debug features" ON)
+# Fancy banner like OpenXMB
+string(ASCII 27 ESC)
+set(C_RESET "${ESC}[0m")
+set(C_GRN   "${ESC}[32m")
+set(C_YEL   "${ESC}[33m")
+set(C_CYN   "${ESC}[36m")
+message(STATUS "${C_GRN}== MediaSonic Builder ==${C_RESET}")
+message(STATUS "${C_YEL}TM & (C) 2025 Syndromatic Ltd. All rights reserved.${C_RESET}")
+if(APPLE)
+  set(_plat "Mac OS X")
+elseif(WIN32)
+  set(_plat "Windows")
+elseif(UNIX)
+  set(_plat "Linux/SynOS")
+else()
+  set(_plat "Unknown")
+endif()
+message(STATUS "Running on ${C_CYN}${_plat}${C_RESET}")
+message(STATUS "Project: MediaSonic ${PROJECT_VERSION}")
+message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "MS_DEBUG: ${MS_DEBUG}")
 
 # Find necessary Qt5 packages
 find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Concurrent Xml REQUIRED)
@@ -59,6 +85,8 @@ set(PROJECT_SOURCES
     # Dialogs
     src/dialogs/aboutInfo.cpp
     src/dialogs/aboutInfo.h
+    src/dialogs/filepicker.cpp
+    src/dialogs/filepicker.h
     # Cover Flow (from DocSurf)
     src/flow.cpp
     src/flow.h
@@ -105,6 +133,20 @@ endif()
 # Installation path
 install(TARGETS MediaSonic
     RUNTIME DESTINATION bin
+)
+
+# Copy runtime fonts to the build output for fallback loading
+# Post-build dev assets (fonts) for run-in-place
+set(_dev_dir "${CMAKE_CURRENT_BINARY_DIR}/share/mediasonic/fonts")
+add_custom_command(TARGET MediaSonic POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:MediaSonic>/fonts"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_dev_dir}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/fonts/DS-DIGII.TTF"
+            "$<TARGET_FILE_DIR:MediaSonic>/fonts/DS-DIGII.TTF"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/fonts/DS-DIGII.TTF"
+            "${_dev_dir}/DS-DIGII.TTF"
 )
 
 # Add uninstall target

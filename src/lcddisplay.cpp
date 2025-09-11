@@ -37,8 +37,8 @@ LcdDisplay::LcdDisplay(QWidget *parent)
     , seekSliderHeight(6)
     , lcdBackgroundGradient(nullptr)
     , lcdGlowGradient(nullptr)
-    , lcdFont(new QFont("DS-Digital", 12, QFont::Bold))
-    , timeFont(new QFont("DS-Digital", 10, QFont::Bold))
+    , lcdFont(new QFont(qApp->property("ms.lcdfamily").toString().isEmpty() ? QStringLiteral("Monospace") : qApp->property("ms.lcdfamily").toString(), 12, QFont::Bold))
+    , timeFont(new QFont(qApp->property("ms.lcdfamily").toString().isEmpty() ? QStringLiteral("Monospace") : qApp->property("ms.lcdfamily").toString(), 10, QFont::Bold))
     , visualizerActive(false)
 {
     // Initialize colors - iTunes 9 style khaki-green LCD
@@ -179,20 +179,20 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     }
 
     // Draw track info (title, artist)
-    painter.setFont(*lcdFont);
+    QFont dynTitle = *lcdFont; dynTitle.setPixelSize(qMax(10, height()/3));
+    painter.setFont(dynTitle);
     painter.setPen(QPen(lcdTextColor, 1));
     QString displayText = displayArtist;
     if (!displayTitle.isEmpty()) {
         displayText += " — " + displayTitle;
     }
-    QFontMetrics fm(*lcdFont);
-    if (fm.horizontalAdvance(displayText) > width() - 80) {
-        displayText = fm.elidedText(displayText, Qt::ElideRight, width() - 80);
-    }
-    painter.drawText(rect().adjusted(playIconRect.right()+10, 5, -10, -height()/2), Qt::AlignLeft | Qt::AlignVCenter, displayText);
+    QFontMetrics fm(dynTitle);
+    displayText = fm.elidedText(displayText, Qt::ElideRight, width() - (playIconRect.right()+20));
+    painter.drawText(rect().adjusted(playIconRect.right()+10, 5, -10, -height()/2), Qt::AlignHCenter | Qt::AlignVCenter, displayText);
 
     // Draw elapsed and remaining time
-    painter.setFont(*timeFont);
+    QFont dynTime = *timeFont; dynTime.setPixelSize(qMax(8, height()/4));
+    painter.setFont(dynTime);
     painter.setPen(QPen(lcdTextColor, 1));
     QString timeStr = elapsedTime;
     if (duration > 0) {
@@ -202,7 +202,7 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     }
     painter.drawText(rect().adjusted(playIconRect.right()+10, height()/2, -10, -5), Qt::AlignLeft | Qt::AlignBottom, timeStr);
 
-    // Draw seek slider
+    // Draw seek slider with knob
     if (duration > 0) {
         painter.fillRect(seekSliderRect, seekSliderBackgroundColor);
         int progressWidth = (position * seekSliderRect.width()) / duration;
@@ -211,6 +211,10 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
         painter.fillRect(progressRect, seekSliderColor);
         painter.setPen(QPen(QColor(100, 120, 100), 1));
         painter.drawRect(seekSliderRect);
+        // Knob
+        int knobX = seekSliderRect.x() + progressWidth;
+        QRect knobRect(knobX-3, seekSliderRect.y()-2, 6, seekSliderRect.height()+4);
+        painter.fillRect(knobRect, QColor(80,100,80));
     }
 }
 

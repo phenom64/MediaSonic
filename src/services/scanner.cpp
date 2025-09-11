@@ -27,7 +27,8 @@ void Scanner::scanDirectory(const QString &path)
     // Run on a background thread to avoid blocking UI
     QtConcurrent::run([this, path]() {
         qInfo() << "Scanner: scanning directory" << path;
-        QDirIterator it(path, QStringList() << "*.mp3" << "*.flac" << "*.m4a" << "*.wav" << "*.ogg", QDir::Files, QDirIterator::Subdirectories);
+        QDirIterator it(path, QStringList() << "*.mp3" << "*.flac" << "*.m4a" << "*.wav" << "*.ogg" << "*.aac" << "*.opus" << "*.aiff" << "*.wma",
+                         QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext() && !m_cancelled) {
             const QString filePath = it.next();
             Track t; t.url = QUrl::fromLocalFile(filePath);

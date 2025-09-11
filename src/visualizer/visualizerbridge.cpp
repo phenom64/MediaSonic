@@ -26,9 +26,24 @@ VisualizerBridge::VisualizerBridge(MediaPlayer *player, QObject *parent)
     : QObject(parent)
 {
     if (player && player->backend()) {
-        m_probe.setSource(player->backend());
+        m_probeOk = m_probe.setSource(player->backend());
     }
     connect(&m_probe, &QAudioProbe::audioBufferProbed, this, &VisualizerBridge::processBuffer);
+
+    if (!m_probeOk) {
+        // Fallback animated levels to avoid blank visualizer on backends without probe support
+        m_fallbackTimer = new QTimer(this);
+        connect(m_fallbackTimer, &QTimer::timeout, this, [this]() {
+            QVector<float> bins(m_bins);
+            static float phase = 0.0f; phase += 0.08f;
+            for (int i = 0; i < m_bins; ++i) {
+                float v = 0.5f + 0.5f * std::sin(phase + i * 0.3f);
+                bins[i] = v;
+            }
+            emit levelsUpdated(bins);
+        });
+        m_fallbackTimer->start(33);
+    }
 }
 
 void VisualizerBridge::processBuffer(const QAudioBuffer &buffer)

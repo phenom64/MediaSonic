@@ -8,6 +8,7 @@
 #include <QAudioProbe>
 #include <QAudioBuffer>
 #include <QVector>
+#include <QTimer>
 
 class MediaPlayer;
 
@@ -27,11 +28,12 @@ private slots:
 
 private:
     QAudioProbe m_probe;
+    bool m_probeOk = false;
     int m_bins = 32;
     void computeFFT(const float *samples, int count, QVector<float> &out);
+    QTimer *m_fallbackTimer = nullptr;
 };
 
 }
 
 #endif // MEDIASONIC_VISUALIZER_BRIDGE_H
-
