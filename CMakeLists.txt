@@ -32,6 +32,23 @@ set(PROJECT_SOURCES
     src/mainwindow.h
     src/mediaplayer.cpp
     src/mediaplayer.h
+    # Core style helpers (inspired by DocSurf)
+    src/gfx/color.cpp
+    src/gfx/color.h
+    src/gfx/fx.cpp
+    src/gfx/fx.h
+    src/ui/atmo_style.cpp
+    src/ui/atmo_style.h
+    # Models
+    src/models/track.h
+    src/models/trackmodel.cpp
+    src/models/trackmodel.h
+    # Services
+    src/services/scanner.cpp
+    src/services/scanner.h
+    # Visualizer
+    src/visualizer/visualizerbridge.cpp
+    src/visualizer/visualizerbridge.h
     # Custom Widgets
     src/lcddisplay.cpp
     src/lcddisplay.h
@@ -68,6 +85,22 @@ target_link_libraries(MediaSonic
     KF5::CoreAddons
     KF5::WidgetsAddons
 )
+
+# Optional Taglib for metadata scanning
+find_package(Taglib QUIET)
+if(Taglib_FOUND)
+    message(STATUS "Taglib found: enabling enhanced metadata scanning")
+    target_compile_definitions(MediaSonic PRIVATE HAVE_TAGLIB)
+    # Prefer imported target if available
+    if(TARGET Taglib::Taglib)
+        target_link_libraries(MediaSonic Taglib::Taglib)
+    elseif(TARGET TagLib::TagLib)
+        target_link_libraries(MediaSonic TagLib::TagLib)
+    else()
+        # Fallback to plain taglib if the module provides variables
+        target_link_libraries(MediaSonic tag)
+    endif()
+endif()
 
 # Installation path
 install(TARGETS MediaSonic

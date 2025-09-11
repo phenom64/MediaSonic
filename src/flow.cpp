@@ -179,6 +179,15 @@ void FlowItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, 
     if (painter->transform().isScaling())
         painter->setRenderHints(QPainter::SmoothPixmapTransform);
 
+    // Defensive painting: Check for null pixmaps
+    if (pix[0].isNull()) {
+        // Draw a placeholder instead of crashing
+        painter->fillRect(boundingRect(), Qt::darkGray);
+        painter->setPen(Qt::white);
+        painter->drawText(boundingRect(), Qt::AlignCenter, "No Cover");
+        return;
+    }
+
     const QRect rect(1,1,256,256);
     const QRect &pixRect = QApplication::style()->itemPixmapRect(rect, Qt::AlignBottom|Qt::AlignHCenter, pix[0]);
     painter->drawPixmap(pixRect, pix[0]);

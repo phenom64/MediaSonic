@@ -18,6 +18,20 @@
         <file>gfx/icons/list_view.png</file>
         <file>gfx/icons/album_view.png</file>
         <file>gfx/icons/cover_flow.png</file>
+        <file>gfx/icons/syndromatic_logo.png</file>
+        <file>gfx/icons/radio.png</file>
+        <file>gfx/icons/home_sharing.png</file>
+        <file>gfx/icons/genius.png</file>
+        <file>gfx/icons/dj.png</file>
+        <file>gfx/icons/90s.png</file>
+        <file>gfx/icons/classical.png</file>
+        <file>gfx/icons/videos.png</file>
+        <file>gfx/icons/top_rated.png</file>
+        <file>gfx/icons/folder.png</file>
+        <file>gfx/icons/playlist.png</file>
         <file>gfx/MediaSonic.png</file>
+    </qresource>
+    <qresource prefix="/fonts/">
+        <file>fonts/DS-DIGII.TTF</file>
     </qresource>
 </RCC> 

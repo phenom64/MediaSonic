@@ -21,10 +21,47 @@
 
 #include "application.h"
 #include "mainwindow.h"
+#include <QFontDatabase>
+#include <QDir>
+#include <KLocalizedString>
+#include "models/track.h"
+#include <QDateTime>
+#include <QTextStream>
+
+static void msMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
+{
+    const char *typeStr = "INFO";
+    switch (type) {
+    case QtDebugMsg: typeStr = "DEBUG"; break;
+    case QtInfoMsg: typeStr = "INFO"; break;
+    case QtWarningMsg: typeStr = "WARN"; break;
+    case QtCriticalMsg: typeStr = "CRIT"; break;
+    case QtFatalMsg: typeStr = "FATAL"; break;
+    }
+    QString where;
+    if (ctx.file)
+        where = QString::fromUtf8(ctx.file) + ":" + QString::number(ctx.line);
+    QTextStream(stderr) << QDateTime::currentDateTime().toString(Qt::ISODate) << " [" << typeStr
+                        << "] " << where << ": " << msg << '\n';
+    if (type == QtFatalMsg)
+        abort();
+}
 
 int main(int argc, char *argv[])
 {
+    qInstallMessageHandler(msMessageHandler);
+    qRegisterMetaType<MS::Track>("MS::Track");
     Application app(argc, argv);
+    KLocalizedString::setApplicationDomain("mediasonic");
+
+    // Load DS-Digital font for LCD display
+    // Resource path note: resources.qrc uses prefix "/fonts/" and file "fonts/DS-DIGII.TTF"
+    // which results in a resource path of ":/fonts/fonts/DS-DIGII.TTF".
+    int fontId = QFontDatabase::addApplicationFont(":/fonts/fonts/DS-DIGII.TTF");
+    if (fontId == -1) {
+        // Fallback to system fonts if DS-Digital fails to load
+        qDebug() << "Failed to load DS-Digital font, using system fallback";
+    }
 
     // Ensure only one instance of the application is running
     if (app.isRunning()) {
@@ -34,5 +71,13 @@ int main(int argc, char *argv[])
     MainWindow win;
     win.show();
 
-    return app.exec();
+    try {
+        return app.exec();
+    } catch (const std::exception &e) {
+        qCritical() << "Unhandled exception:" << e.what();
+        return 1;
+    } catch (...) {
+        qCritical() << "Unhandled unknown exception";
+        return 2;
+    }
 }

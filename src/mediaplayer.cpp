@@ -26,10 +26,12 @@ MediaPlayer::MediaPlayer(QObject *parent) : QObject(parent)
     player = new QMediaPlayer(this);
     playlist = new QMediaPlaylist(this);
     player->setPlaylist(playlist);
+    player->setObjectName(QStringLiteral("MediaPlayerCoreObject"));
 
     connect(player, &QMediaPlayer::currentMediaChanged, this, &MediaPlayer::currentMediaChanged);
     connect(player, &QMediaPlayer::durationChanged, this, &MediaPlayer::durationChanged);
     connect(player, &QMediaPlayer::positionChanged, this, &MediaPlayer::positionChanged);
+    connect(player, &QMediaPlayer::stateChanged, this, &MediaPlayer::stateChanged);
 }
 
 void MediaPlayer::addToPlaylist(const QUrl &url)
@@ -75,4 +77,19 @@ void MediaPlayer::setPosition(qint64 position)
 QMediaPlaylist* MediaPlayer::getPlaylist()
 {
     return playlist;
+}
+
+void MediaPlayer::setVolume(int volume)
+{
+    player->setVolume(qBound(0, volume, 100));
+}
+
+void MediaPlayer::next()
+{
+    if (playlist) playlist->next();
+}
+
+void MediaPlayer::previous()
+{
+    if (playlist) playlist->previous();
 }

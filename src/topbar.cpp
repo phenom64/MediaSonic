@@ -21,6 +21,7 @@
 
 #include "topbar.h"
 #include "lcddisplay.h"
+#include "ui/atmo_style.h"
 #include <QApplication>
 #include <QStyle>
 #include <QStyleOption>
@@ -155,10 +156,11 @@ void TopBar::setupVolumeControl()
 void TopBar::setupLcdDisplay()
 {
     lcdDisplay = new LcdDisplay(this);
-    lcdDisplay->setFixedSize(300, 40);
+    lcdDisplay->setFixedHeight(40);
     connect(lcdDisplay, &LcdDisplay::seekChanged, this, &TopBar::seekChanged);
 
     mainLayout->addWidget(lcdDisplay);
+    mainLayout->setStretchFactor(lcdDisplay, 1); // Make LCD expand dynamically
     mainLayout->addSpacing(15);
 }
 
@@ -233,20 +235,11 @@ void TopBar::setupStyling()
 
 void TopBar::createGradients()
 {
-    // Background gradient
-    backgroundGradient = new QLinearGradient(0, 0, 0, height());
-    backgroundGradient->setColorAt(0, QColor(245, 245, 245));
-    backgroundGradient->setColorAt(1, QColor(235, 235, 235));
-
-    // Button gradient
-    buttonGradient = new QLinearGradient(0, 0, 0, 32);
-    buttonGradient->setColorAt(0, QColor(240, 240, 240));
-    buttonGradient->setColorAt(1, QColor(220, 220, 220));
-
-    // Button pressed gradient
-    buttonPressedGradient = new QLinearGradient(0, 0, 0, 32);
-    buttonPressedGradient->setColorAt(0, QColor(200, 200, 200));
-    buttonPressedGradient->setColorAt(1, QColor(180, 180, 180));
+    // Use AtmoStyle derived from the active palette for theme coherence
+    MS::AtmoStyle style = MS::AtmoStyle::fromPalette(palette());
+    backgroundGradient = new QLinearGradient(style.topbarBackground(height()));
+    buttonGradient = new QLinearGradient(style.buttonMetal(32));
+    buttonPressedGradient = new QLinearGradient(style.buttonPressed(32));
 }
 
 void TopBar::paintEvent(QPaintEvent *event)

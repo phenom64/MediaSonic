@@ -25,6 +25,9 @@
 #include <QResizeEvent>
 #include <QFontMetrics>
 #include <QApplication>
+#include <QRandomGenerator>
+#include "ui/atmo_style.h"
+#include <QVector>
 
 LcdDisplay::LcdDisplay(QWidget *parent)
     : QWidget(parent)
@@ -34,16 +37,16 @@ LcdDisplay::LcdDisplay(QWidget *parent)
     , seekSliderHeight(6)
     , lcdBackgroundGradient(nullptr)
     , lcdGlowGradient(nullptr)
-    , lcdFont(new QFont("Monaco", 9, QFont::Bold))
-    , timeFont(new QFont("Monaco", 8, QFont::Bold))
+    , lcdFont(new QFont("DS-Digital", 12, QFont::Bold))
+    , timeFont(new QFont("DS-Digital", 10, QFont::Bold))
     , visualizerActive(false)
 {
-    // Initialize colors
-    lcdBackgroundColor = QColor(20, 40, 20);
-    lcdTextColor = QColor(0, 255, 0);
-    lcdGlowColor = QColor(0, 200, 0);
-    seekSliderColor = QColor(0, 255, 0);
-    seekSliderBackgroundColor = QColor(10, 20, 10);
+    // Initialize colors - iTunes 9 style khaki-green LCD
+    lcdBackgroundColor = QColor(215, 220, 200); // Light khaki start
+    lcdTextColor = QColor(50, 59, 40); // Dark olive green text
+    lcdGlowColor = QColor(50, 59, 40);
+    seekSliderColor = QColor(50, 59, 40);
+    seekSliderBackgroundColor = QColor(200, 205, 185); // Darker khaki end
 
     createLcdGradients();
     setupSeekSlider();
@@ -84,6 +87,12 @@ void LcdDisplay::setElapsedTime(const QString &time)
     updateDisplay();
 }
 
+void LcdDisplay::setLevels(const QVector<float> &levels)
+{
+    levelBins = levels;
+    if (visualizerActive) update();
+}
+
 void LcdDisplay::setupSeekSlider()
 {
     seekSliderRect = QRect(5, height() - seekSliderHeight - 5, width() - 10, seekSliderHeight);
@@ -96,16 +105,11 @@ void LcdDisplay::updateDisplay()
 
 void LcdDisplay::createLcdGradients()
 {
-    // LCD background gradient
-    lcdBackgroundGradient = new QLinearGradient(0, 0, 0, height());
-    lcdBackgroundGradient->setColorAt(0, QColor(30, 50, 30));
-    lcdBackgroundGradient->setColorAt(0.5, QColor(20, 40, 20));
-    lcdBackgroundGradient->setColorAt(1, QColor(10, 30, 10));
-
-    // LCD glow gradient
-    lcdGlowGradient = new QRadialGradient(width() / 2, height() / 2, width() / 2);
-    lcdGlowGradient->setColorAt(0, QColor(0, 255, 0, 50));
-    lcdGlowGradient->setColorAt(1, QColor(0, 255, 0, 0));
+    MS::AtmoStyle style = MS::AtmoStyle::fromPalette(palette());
+    QLinearGradient g = style.lcdBackground(height());
+    lcdBackgroundGradient = new QLinearGradient(g);
+    QRadialGradient rg = style.overlayGlow(width(), height());
+    lcdGlowGradient = new QRadialGradient(rg);
 }
 
 void LcdDisplay::paintEvent(QPaintEvent *event)
@@ -118,16 +122,16 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     // Draw LCD background
     painter.fillRect(rect(), *lcdBackgroundGradient);
 
-    // Draw LCD border
-    painter.setPen(QPen(QColor(60, 80, 60), 2));
+    // Draw LCD border - subtle iTunes style
+    painter.setPen(QPen(QColor(180, 185, 170), 1));
     painter.drawRect(rect().adjusted(1, 1, -1, -1));
 
-    // Draw gloss effect (subtle white gradient at top)
+    // Draw gloss effect (subtle highlight at top)
     QLinearGradient gloss(rect().topLeft(), rect().bottomLeft());
-    gloss.setColorAt(0, QColor(255,255,255,80));
-    gloss.setColorAt(0.3, QColor(255,255,255,30));
+    gloss.setColorAt(0, QColor(255,255,255,60));
+    gloss.setColorAt(0.2, QColor(255,255,255,20));
     gloss.setColorAt(1, QColor(255,255,255,0));
-    QRect glossRect = rect().adjusted(2, 2, -2, -height()/2);
+    QRect glossRect = rect().adjusted(2, 2, -2, -height()/3);
     painter.fillRect(glossRect, gloss);
 
     // If no track is playing, show centered Syndromatic logo
@@ -155,16 +159,20 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     painter.setBrush(QColor(60, 80, 60));
     painter.drawPolygon(points, 3);
 
-    // If visualizer is active, draw a placeholder digital visualizer
+    // If visualizer is active, draw bars using live data
     if (visualizerActive) {
         int visW = width() - playIconRect.right() - 30;
         int visH = height() / 2;
         QRect visRect(playIconRect.right()+10, height()/2-visH/2, visW, visH);
         painter.setPen(Qt::NoPen);
-        for (int i = 0; i < 32; ++i) {
-            int barH = qrand() % visH;
-            QRect bar(visRect.left()+i*(visW/32), visRect.bottom()-barH, visW/32-2, barH);
-            painter.setBrush(QColor(0,255,0,180));
+        const int bins = levelBins.isEmpty() ? 32 : levelBins.size();
+        for (int i = 0; i < bins; ++i) {
+            float level = levelBins.isEmpty() ? QRandomGenerator::global()->bounded(1.0f) : levelBins.at(i);
+            int barH = int(level * visH);
+            int barW = qMax(2, visW / bins - 2);
+            int x = visRect.left() + i * (visW / bins);
+            QRect bar(x, visRect.bottom() - barH, barW, barH);
+            painter.setBrush(QColor(0,255,0,160));
             painter.drawRect(bar);
         }
         return;

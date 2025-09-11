@@ -52,6 +52,12 @@
 #include <QStyledItemDelegate>
 #include <QPainter>
 #include <QImageReader>
+#include <QSortFilterProxyModel>
+#include <QRegularExpression>
+#include "models/trackmodel.h"
+#include "services/scanner.h"
+#include "visualizer/visualizerbridge.h"
+#include <KLocalizedString>
 
 // StarRatingDelegate for the Rating column
 class StarRatingDelegate : public QStyledItemDelegate {
@@ -111,6 +117,9 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setupUi();
+    scanner = nullptr;
+    trackProxyModel = nullptr;
+    visualizer = nullptr;
     
     // Create MediaPlayer BEFORE setupMenuBar
     mediaPlayer = new MediaPlayer(this);
@@ -129,11 +138,37 @@ MainWindow::MainWindow(QWidget *parent)
     connect(mediaPlayer, &MediaPlayer::positionChanged, topBar, [this](qint64 position) {
         topBar->setPosition(position);
     });
+    connect(mediaPlayer, &MediaPlayer::stateChanged, topBar, [this](QMediaPlayer::State st){
+        topBar->setPlayState(st == QMediaPlayer::PlayingState);
+    });
     // Connect LcdDisplay seekChanged to mediaPlayer->setPosition using public getter
     connect(topBar->getLcdDisplay(), &LcdDisplay::seekChanged, mediaPlayer, &MediaPlayer::setPosition);
+    // Wire TopBar controls
+    connect(topBar, &TopBar::playClicked,   mediaPlayer, &MediaPlayer::play);
+    connect(topBar, &TopBar::pauseClicked,  mediaPlayer, &MediaPlayer::pause);
+    connect(topBar, &TopBar::stopClicked,   mediaPlayer, &MediaPlayer::stop);
+    connect(topBar, &TopBar::previousClicked, mediaPlayer, &MediaPlayer::previous);
+    connect(topBar, &TopBar::nextClicked,     mediaPlayer, &MediaPlayer::next);
+    connect(topBar, &TopBar::volumeChanged,   mediaPlayer, &MediaPlayer::setVolume);
+    // Visualizer bridge
+    visualizer = new MS::VisualizerBridge(mediaPlayer, this);
+    connect(visualizer, &MS::VisualizerBridge::levelsUpdated, topBar->getLcdDisplay(), &LcdDisplay::setLevels);
     
     setupMenuBar();
     createModels();
+
+    // Search integration once models exist
+    connect(topBar, &TopBar::searchTextChanged, this, [this](const QString &text){
+        if (trackProxyModel) {
+            trackProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+            trackProxyModel->setFilterKeyColumn(-1);
+            trackProxyModel->setFilterRegularExpression(QRegularExpression(QRegularExpression::escape(text), QRegularExpression::CaseInsensitiveOption));
+        }
+    });
+
+    // Connect media player to update status bar (mediaPlayer is valid here)
+    connect(mediaPlayer, &MediaPlayer::currentMediaChanged, this, &MainWindow::updateStatusSummary);
+    connect(mediaPlayer, &MediaPlayer::durationChanged, this, &MainWindow::updateStatusSummary);
 }
 
 MainWindow::~MainWindow()
@@ -154,6 +189,94 @@ void MainWindow::setupUi()
     // TopBar (all playback controls/info go here)
     topBar = new TopBar(this);
     mainLayout->addWidget(topBar);
+
+    // View Header (Albums, Artists, Genres, Composers buttons)
+    viewHeader = new QWidget(this);
+    QHBoxLayout *viewHeaderLayout = new QHBoxLayout(viewHeader);
+    viewHeaderLayout->setContentsMargins(10, 5, 10, 5);
+    viewHeaderLayout->setSpacing(10);
+    
+    // Create view toggle buttons
+    albumsButton = new QPushButton("Albums", viewHeader);
+    artistsButton = new QPushButton("Artists", viewHeader);
+    genresButton = new QPushButton("Genres", viewHeader);
+    composersButton = new QPushButton("Composers", viewHeader);
+    
+    // Style the buttons to match iTunes 9
+    QString buttonStyle = 
+        "QPushButton {"
+        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "        stop:0 #f8f8f8, stop:1 #e8e8e8);"
+        "    border: 1px solid #c0c0c0;"
+        "    border-radius: 3px;"
+        "    padding: 4px 12px;"
+        "    color: #404040;"
+        "    font-size: 11px;"
+        "    font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "        stop:0 #f0f0f0, stop:1 #e0e0e0);"
+        "}"
+        "QPushButton:pressed {"
+        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "        stop:0 #e0e0e0, stop:1 #d0d0d0);"
+        "}"
+        "QPushButton:checked {"
+        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+        "        stop:0 #0078d4, stop:1 #0063b1);"
+        "    color: white;"
+        "    border: 1px solid #005a9e;"
+        "}";
+    
+    albumsButton->setStyleSheet(buttonStyle);
+    artistsButton->setStyleSheet(buttonStyle);
+    genresButton->setStyleSheet(buttonStyle);
+    composersButton->setStyleSheet(buttonStyle);
+    
+    // Make buttons checkable
+    albumsButton->setCheckable(true);
+    artistsButton->setCheckable(true);
+    genresButton->setCheckable(true);
+    composersButton->setCheckable(true);
+    
+    // Set Albums as default selected
+    albumsButton->setChecked(true);
+    
+    // Add buttons to layout
+    viewHeaderLayout->addWidget(albumsButton);
+    viewHeaderLayout->addWidget(artistsButton);
+    viewHeaderLayout->addWidget(genresButton);
+    viewHeaderLayout->addWidget(composersButton);
+    viewHeaderLayout->addStretch();
+    
+    // Connect button signals
+    connect(albumsButton, &QPushButton::clicked, this, [this]() {
+        albumsButton->setChecked(true);
+        artistsButton->setChecked(false);
+        genresButton->setChecked(false);
+        composersButton->setChecked(false);
+    });
+    connect(artistsButton, &QPushButton::clicked, this, [this]() {
+        albumsButton->setChecked(false);
+        artistsButton->setChecked(true);
+        genresButton->setChecked(false);
+        composersButton->setChecked(false);
+    });
+    connect(genresButton, &QPushButton::clicked, this, [this]() {
+        albumsButton->setChecked(false);
+        artistsButton->setChecked(false);
+        genresButton->setChecked(true);
+        composersButton->setChecked(false);
+    });
+    connect(composersButton, &QPushButton::clicked, this, [this]() {
+        albumsButton->setChecked(false);
+        artistsButton->setChecked(false);
+        genresButton->setChecked(false);
+        composersButton->setChecked(true);
+    });
+    
+    mainLayout->addWidget(viewHeader);
 
     // Main splitter (sidebar + main view)
     mainSplitter = new QSplitter(Qt::Horizontal, this);
@@ -182,15 +305,54 @@ void MainWindow::setupUi()
 
     // --- Album View ---
     QWidget *albumView = new QWidget();
+    QVBoxLayout *albumLayout = new QVBoxLayout(albumView);
+    albumLayout->setContentsMargins(10, 10, 10, 10);
+    albumLayout->setSpacing(10);
+    
+    // Create scroll area for album grid
+    QScrollArea *albumScrollArea = new QScrollArea(albumView);
+    albumScrollArea->setWidgetResizable(true);
+    albumScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    albumScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    
+    // Create widget to hold the album grid
+    QWidget *albumGridWidget = new QWidget();
+    albumGridLayout = new QGridLayout(albumGridWidget);
+    albumGridLayout->setSpacing(15);
+    albumGridLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    
+    albumScrollArea->setWidget(albumGridWidget);
+    albumLayout->addWidget(albumScrollArea);
+    
     mainViewStack->addWidget(albumView);
 
     // --- Cover Flow View ---
     QWidget *coverFlowView = new QWidget();
     QVBoxLayout *coverFlowLayout = new QVBoxLayout(coverFlowView);
+    coverFlowLayout->setContentsMargins(0, 0, 0, 0);
+    coverFlowLayout->setSpacing(0);
+    
+    // Create vertical splitter for Cover Flow view
+    QSplitter *coverFlowSplitter = new QSplitter(Qt::Vertical, coverFlowView);
+    coverFlowSplitter->setChildrenCollapsible(false);
+    
+    // Flow widget (top)
     coverFlow = new Flow();
-    QTableView *coverFlowTrackList = new QTableView();
-    coverFlowLayout->addWidget(coverFlow);
-    coverFlowLayout->addWidget(coverFlowTrackList);
+    coverFlowSplitter->addWidget(coverFlow);
+    
+    // Track list (bottom)
+    coverFlowTrackList = new QTableView();
+    // Model is set later in createModels()
+    coverFlowTrackList->setSelectionBehavior(QAbstractItemView::SelectRows);
+    coverFlowTrackList->horizontalHeader()->setStretchLastSection(true);
+    coverFlowTrackList->verticalHeader()->setVisible(false);
+    coverFlowTrackList->setShowGrid(false);
+    coverFlowSplitter->addWidget(coverFlowTrackList);
+    
+    // Set splitter proportions (70% Flow, 30% Track List)
+    coverFlowSplitter->setSizes(QList<int>() << 400 << 200);
+    
+    coverFlowLayout->addWidget(coverFlowSplitter);
     mainViewStack->addWidget(coverFlowView);
 
     // Add sidebar and main view stack to splitter
@@ -205,15 +367,37 @@ void MainWindow::setupUi()
     // Status Bar (summary only)
     QStatusBar *statusBar = new QStatusBar(this);
     setStatusBar(statusBar);
-    statusBar->showMessage("No music loaded"); // Placeholder, update as needed
+    
+    // Create summary label
+    statusSummaryLabel = new QLabel("No music loaded", statusBar);
+    statusBar->addWidget(statusSummaryLabel);
+    
+    // Add speaker icon on the right
+    QPushButton *speakerIcon = new QPushButton(statusBar);
+    speakerIcon->setIcon(QIcon(":/gfx/icons/volume.png"));
+    speakerIcon->setFixedSize(20, 20);
+    speakerIcon->setStyleSheet(
+        "QPushButton {"
+        "    border: none;"
+        "    background: transparent;"
+        "    padding: 0px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: rgba(0, 0, 0, 0.1);"
+        "    border-radius: 2px;"
+        "}"
+    );
+    statusBar->addPermanentWidget(speakerIcon);
 
     connect(topBar, &TopBar::viewSwitched, this, [this](int idx) {
         mainViewStack->setCurrentIndex(idx);
     });
-
+    
     connect(trackListView, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {
         if (!index.isValid()) return;
-        int row = index.row();
+        QModelIndex srcIdx = index;
+        if (trackProxyModel) srcIdx = trackProxyModel->mapToSource(index);
+        int row = srcIdx.row();
         QMediaPlaylist* playlist = mediaPlayer->getPlaylist();
         if (playlist && row >= 0 && row < playlist->mediaCount()) {
             playlist->setCurrentIndex(row);
@@ -229,10 +413,13 @@ void MainWindow::setupMenuBar()
 
     // File Menu
     QMenu *fileMenu = menuBar->addMenu(tr("&File"));
-    QAction *addToLibraryAction = new QAction(tr("Add to Library..."), this);
-    addToLibraryAction->setShortcut(QKeySequence::Open);
-    connect(addToLibraryAction, &QAction::triggered, this, &MainWindow::openFiles);
-    fileMenu->addAction(addToLibraryAction);
+    QAction *addFilesAction = new QAction(tr("Add File(s)..."), this);
+    addFilesAction->setShortcut(QKeySequence::Open);
+    connect(addFilesAction, &QAction::triggered, this, &MainWindow::addFiles);
+    fileMenu->addAction(addFilesAction);
+    QAction *addFolderAction = new QAction(tr("Add Folder..."), this);
+    connect(addFolderAction, &QAction::triggered, this, &MainWindow::addFolder);
+    fileMenu->addAction(addFolderAction);
     fileMenu->addSeparator();
     QAction *exitAction = fileMenu->addAction(tr("E&xit"));
     connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
@@ -273,19 +460,54 @@ void MainWindow::setupMenuBar()
 
 void MainWindow::createModels()
 {
-    // Sidebar Model is now handled by Sidebar widget itself
-    // Track List Model
-    trackListModel = new QStandardItemModel(this);
-    trackListModel->setHorizontalHeaderLabels({"Name", "Time", "Artist", "Album", "Genre", "Rating", "Plays"});
-    trackListView->setModel(trackListModel);
+    // Sidebar Model handled by Sidebar widget itself
+    // Track List Model (typed)
+    trackListModel = new MS::TrackModel(this);
+    trackProxyModel = new QSortFilterProxyModel(this);
+    trackProxyModel->setSourceModel(trackListModel);
+    trackProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    trackProxyModel->setDynamicSortFilter(true);
+    trackListView->setModel(trackProxyModel);
+    if (coverFlowTrackList) coverFlowTrackList->setModel(trackProxyModel);
     trackListView->setAlternatingRowColors(true);
     trackListView->setSortingEnabled(true);
     trackListView->setSelectionBehavior(QAbstractItemView::SelectRows);
     trackListView->setShowGrid(false);
     trackListView->horizontalHeader()->setStretchLastSection(true);
     trackListView->verticalHeader()->setDefaultSectionSize(22); // Compact row height
-    // Add custom delegate for star rating in Rating column
-    trackListView->setItemDelegateForColumn(5, new StarRatingDelegate(trackListView));
+    
+    // Style the track list to match iTunes 9
+    trackListView->setStyleSheet(
+        "QTableView {"
+        "    background-color: white;"
+        "    alternate-background-color: #f8f8f8;"
+        "    gridline-color: #e0e0e0;"
+        "    selection-background-color: #0078d4;"
+        "    selection-color: white;"
+        "}"
+        "QTableView::item {"
+        "    padding: 2px;"
+        "    border: none;"
+        "}"
+        "QTableView::item:selected {"
+        "    background-color: #0078d4;"
+        "    color: white;"
+        "}"
+        "QHeaderView::section {"
+        "    background-color: #f0f0f0;"
+        "    border: 1px solid #d0d0d0;"
+        "    padding: 4px;"
+        "    font-weight: bold;"
+        "    color: #404040;"
+        "}"
+    );
+    if (coverFlowTrackList)
+        coverFlowTrackList->setStyleSheet(trackListView->styleSheet());
+    
+    // Add custom delegate for star rating in Rating column (proxy column index preserved)
+    trackListView->setItemDelegateForColumn(MS::TrackModel::ColRating, new StarRatingDelegate(trackListView));
+    if (coverFlowTrackList)
+        coverFlowTrackList->setItemDelegateForColumn(MS::TrackModel::ColRating, new StarRatingDelegate(coverFlowTrackList));
 
     // Album View Model (simple: album name, artist, cover art)
     albumViewModel = new QStandardItemModel(this);
@@ -298,9 +520,47 @@ void MainWindow::createModels()
     coverFlow->setModel(coverFlowModel);
 }
 
-void MainWindow::openFiles()
+void MainWindow::addFiles()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"), QDir::homePath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QStringList files = QFileDialog::getOpenFileNames(
+        this,
+        tr("Add Files"),
+        QDir::homePath(),
+        tr("Audio Files (*.mp3 *.flac *.m4a *.wav *.ogg *.aac *.opus *.aiff *.wma);;All Files (*)"));
+    if (!files.isEmpty()) {
+        if (!scanner) {
+            scanner = new MS::Scanner(this);
+            connect(scanner, &MS::Scanner::trackDiscovered, this, [this](const MS::Track &t){
+                mediaPlayer->addToPlaylist(t.url);
+                trackListModel->addTrack(t);
+                // Basic album & Cover Flow population
+                QString album = t.album;
+                QString artist = t.artist;
+                QString year = t.year ? QString::number(t.year) : QString();
+                if (!album.isEmpty()) {
+                    bool found=false; for (int r=0;r<albumViewModel->rowCount();++r) if (albumViewModel->item(r)->text()==album) {found=true;break;}
+                    if (!found) {
+                        QStandardItem *albumItem = new QStandardItem(album);
+                        albumItem->setData(artist, Qt::UserRole + 1);
+                        albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(64,64));
+                        albumViewModel->appendRow(albumItem);
+                    }
+                }
+                QList<QStandardItem*> coverRow;
+                coverRow << new QStandardItem(album);
+                coverRow << new QStandardItem(artist);
+                coverRow << new QStandardItem(year);
+                coverFlowModel->appendRow(coverRow);
+                updateStatusSummary();
+            });
+        }
+        scanner->scanPaths(files);
+    }
+}
+
+void MainWindow::addFolder()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Add Folder"), QDir::homePath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (!dir.isEmpty()) {
         scanDirectory(dir);
     }
@@ -308,60 +568,68 @@ void MainWindow::openFiles()
 
 void MainWindow::scanDirectory(const QString &path)
 {
-    QDirIterator it(path, QStringList() << "*.mp3" << "*.flac" << "*.m4a" << "*.wav" << "*.ogg", QDir::Files, QDirIterator::Subdirectories);
-    QSet<QString> albumsAdded;
-    while (it.hasNext()) {
-        QString filePath = it.next();
-        mediaPlayer->addToPlaylist(QUrl::fromLocalFile(filePath));
-
-        QFileInfo fileInfo(filePath);
-        QList<QStandardItem *> rowItems;
-        rowItems << new QStandardItem(fileInfo.baseName()); // Name
-        rowItems << new QStandardItem(""); // Time
-        rowItems << new QStandardItem(""); // Artist
-        rowItems << new QStandardItem(""); // Album
-        rowItems << new QStandardItem(""); // Genre
-        rowItems << new QStandardItem(""); // Rating
-        rowItems << new QStandardItem("0"); // Plays
-        trackListModel->appendRow(rowItems);
-
-        // --- Album View & Cover Flow population ---
-        // Try to extract metadata (album, artist, cover art)
-        QMediaPlayer tempPlayer;
-        tempPlayer.setMedia(QUrl::fromLocalFile(filePath));
-        tempPlayer.stop(); // Just to load metadata
-        QString album = tempPlayer.metaData(QMediaMetaData::AlbumTitle).toString();
-        QString artist = tempPlayer.metaData(QMediaMetaData::AlbumArtist).toString();
-        QString year = tempPlayer.metaData(QMediaMetaData::Year).toString();
-        QVariant coverArt = tempPlayer.metaData(QMediaMetaData::CoverArtImage);
-        if (!album.isEmpty() && !albumsAdded.contains(album)) {
-            QStandardItem *albumItem = new QStandardItem(album);
-            albumItem->setData(artist, Qt::UserRole + 1);
-            if (coverArt.isValid()) {
-                QPixmap pixmap = coverArt.value<QPixmap>();
-                if (!pixmap.isNull()) {
-                    albumItem->setIcon(pixmap.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                } else {
-                    // Use placeholder
-                    albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(64, 64));
+    if (!scanner) {
+        scanner = new MS::Scanner(this);
+        connect(scanner, &MS::Scanner::trackDiscovered, this, [this](const MS::Track &t){
+            // Add to playlist in same order
+            mediaPlayer->addToPlaylist(t.url);
+            trackListModel->addTrack(t);
+            // Album/CoverFlow population (simple for now)
+            QString album = t.album;
+            QString artist = t.artist;
+            QString year = t.year ? QString::number(t.year) : QString();
+            if (!album.isEmpty()) {
+                bool found=false; for (int r=0;r<albumViewModel->rowCount();++r) if (albumViewModel->item(r)->text()==album) {found=true;break;}
+                if (!found) {
+                    QStandardItem *albumItem = new QStandardItem(album);
+                    albumItem->setData(artist, Qt::UserRole + 1);
+                    albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(64,64));
+                    albumViewModel->appendRow(albumItem);
                 }
-            } else {
-                albumItem->setIcon(QPixmap(":/gfx/icons/music.png").scaled(64, 64));
             }
-            albumViewModel->appendRow(albumItem);
-            albumsAdded.insert(album);
-        }
-        // Cover Flow
-        QList<QStandardItem*> coverRow;
-        coverRow << new QStandardItem(album);
-        coverRow << new QStandardItem(artist);
-        coverRow << new QStandardItem(year);
-        coverFlowModel->appendRow(coverRow);
+            QList<QStandardItem*> coverRow;
+            coverRow << new QStandardItem(album);
+            coverRow << new QStandardItem(artist);
+            coverRow << new QStandardItem(year);
+            coverFlowModel->appendRow(coverRow);
+            updateStatusSummary();
+        });
     }
+    scanner->scanDirectory(path);
 }
 
 void MainWindow::about()
 {
     AboutInfo aboutDialog(this);
     aboutDialog.exec();
+}
+
+void MainWindow::updateStatusSummary()
+{
+    if (!statusSummaryLabel) return;
+    
+    int trackCount = trackListModel ? trackListModel->rowCount() : 0;
+    if (trackCount == 0) {
+        statusSummaryLabel->setText(i18n("No music loaded"));
+        return;
+    }
+    
+    // Calculate total duration from model
+    qint64 totalDuration = trackListModel->totalDurationMs();
+    
+    int totalMinutes = totalDuration / 60000;
+    int totalSeconds = (totalDuration % 60000) / 1000;
+    
+    // Calculate total size (placeholder until file sizes are stored)
+    qint64 totalSize = trackListModel->totalSizeBytes();
+    double totalSizeMB = totalSize / (1024.0 * 1024.0);
+    
+    QString summary = QString("%1 %2, %3:%4, %5 MB")
+                     .arg(trackCount)
+                     .arg(trackCount == 1 ? i18n("track") : i18n("tracks"))
+                     .arg(totalMinutes)
+                     .arg(totalSeconds, 2, 10, QChar('0'))
+                     .arg(QString::number(totalSizeMB, 'f', 1));
+    
+    statusSummaryLabel->setText(summary);
 }

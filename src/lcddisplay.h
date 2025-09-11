@@ -29,6 +29,7 @@
 #include <QFont>
 #include <QMouseEvent>
 #include <QTimer>
+#include <QVector>
 
 class LcdDisplay : public QWidget
 {
@@ -42,6 +43,7 @@ public:
     void setDuration(qint64 duration);
     void setPosition(qint64 position);
     void setElapsedTime(const QString &time);
+    void setLevels(const QVector<float> &levels);
 
 signals:
     void seekChanged(qint64 position);
@@ -84,6 +86,7 @@ private:
 
     // Visualizer state
     bool visualizerActive;
+    QVector<float> levelBins;
 };
 
 #endif // LCDDISPLAY_H 

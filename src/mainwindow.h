@@ -28,6 +28,10 @@
 #include "mediaplayer.h"
 #include "topbar.h"
 #include <QStackedWidget>
+#include <QSortFilterProxyModel>
+
+// Forward declarations for MS namespace types used as pointers
+namespace MS { class TrackModel; class VisualizerBridge; class Scanner; }
 
 class QTableView;
 class QSplitter;
@@ -44,7 +48,8 @@ public:
     ~MainWindow();
 
 private slots:
-    void openFiles();
+    void addFiles();
+    void addFolder();
     void about();
 
 private:
@@ -52,29 +57,41 @@ private:
     void setupMenuBar();
     void createModels();
     void scanDirectory(const QString &path);
+    void updateStatusSummary();
 
     // Main UI components
     TopBar *topBar;
+    QWidget *viewHeader;
+    QPushButton *albumsButton;
+    QPushButton *artistsButton;
+    QPushButton *genresButton;
+    QPushButton *composersButton;
     QSplitter *mainSplitter;
     QSplitter *rightSplitter;
     QTreeView *sidebar;
     QStackedWidget *mainViewStack;
     QTableView *trackListView;
+    QTableView *coverFlowTrackList;
     Flow *coverFlow;
+    QGridLayout *albumGridLayout;
 
     // Models
     QStandardItemModel *sidebarModel;
-    QStandardItemModel *trackListModel;
+    MS::TrackModel *trackListModel;
+    QSortFilterProxyModel *trackProxyModel;
     QStandardItemModel *coverFlowModel;
     QStandardItemModel *albumViewModel;
 
-    // Media Player
+    // Media Player & services
     MediaPlayer *mediaPlayer;
+    MS::VisualizerBridge *visualizer;
+    MS::Scanner *scanner;
 
     // Status bar widgets
     QLabel *trackInfoLabel;
     QLabel *timeLabel;
     QSlider *timeSlider;
+    QLabel *statusSummaryLabel;
 };
 
 #endif // MAINWINDOW_H

@@ -38,17 +38,22 @@ public:
     qint64 duration() const;
     qint64 position() const;
     QMediaPlaylist* getPlaylist();
+    QMediaPlayer* backend() { return player; }
 
 public slots:
     void play();
     void pause();
     void stop();
     void setPosition(qint64 position);
+    void setVolume(int volume);
+    void next();
+    void previous();
 
 signals:
     void currentMediaChanged(const QMediaContent &content);
     void durationChanged(qint64 duration);
     void positionChanged(qint64 position);
+    void stateChanged(QMediaPlayer::State state);
 
 
 private:
