@@ -1,161 +1,77 @@
-# Atmo Desktop Framework (NSE)
+# MediaSonic
 
-An elegant Qt 5 widget style and KWin decoration designed for SynOS. Atmo brings the New Syndromatic Experience (NSE) to KDE/Qt apps with a unified toolbar/titlebar (UNO), refined shadows and gradients, and a highly configurable, text‑based theme system.
+<a href="https://syndromatic.com"><img src="src/gfx/MediaSonic.png" alt="MediaSonic icon" width="100"/></a>
 
-Developed and maintained by Syndromatic Ltd. Derived from “styleproject” (2013, Robert Metsaranta), modernized for Qt 5.
+**MediaSonic** is the default music and media player for **SynOS**, designed from the ground up as a beautiful, tactile, and immersive alternative to modern media applications. Built with the spirit of the Atmo design language and a deep respect for human-centric interaction, MediaSonic aims to make listening to music and watching videos a deeply engaging and joyful experience.
 
----
-
-## ✨ Highlights
-
-- **Qt 5 style plugin:** Ships as a standard `QStyle` plugin named `Atmo`.
-- **KWin decoration:** Optional decoration module (KDecoration2) for a unified look.
-- **UNO:** Unified titlebar + toolbar area with optional translucency.
-- **Content‑aware toolbars (experimental):** Toolbars can respond to underlying content.
-- **Animated interactions:** Hover states, mouseover animations, and polished shadows.
-- **Text‑file configuration:** Human‑readable `NSE.conf` with extensive options for buttons, inputs, tabs, sliders, shadows, and more.
-- **KF5 integration:** Uses `KF5::WindowSystem`; supports X11/XCB for shadows and effects.
-
-> Note: Wayland support is limited where code depends on X11 (`QX11Info`/XCB). For best results run on Plasma/X11. This will be fixed in the future with SynOS 2 "Juniper"
+Currently in very early alpha, MediaSonic is a work in progress and is being actively developed to reflect the core philosophy of Syndromatic: clarity, charm, and control.
 
 ---
 
-## 📦 Dependencies
+## ✨ Features
 
-Tested on SynOS Canora Beta 2 (Ubuntu/Debian base) with Qt 5.
+- **Rich Media Playback**
+  Native support for a wide range of audio (MP3, FLAC, WAV, AIFF, M4A) and video (MP4, MOV) formats.
 
-- Required (Debian/Ubuntu):
-  - `build-essential cmake extra-cmake-modules`
-  - `qtbase5-dev qttools5-dev qtdeclarative5-dev`
-  - `libqt5x11extras5-dev libqt5opengl5-dev libqt5dbus5`
-  - `libx11-dev libxcb1-dev libxcb-util-dev`
-  - `libkf5windowsystem-dev`
-  - `libdbusmenu-qt5-dev` (for mac‑menu integration)
-- Optional (for KWin decoration):
-  - `libkdecorations2-dev`
+- **Cover Flow-inspired Browsing** *(WIP)*
+  A visually stunning, dimensional carousel to browse your music library by album art, bringing a tangible feel to your digital collection.
+
+- **Skeuomorphic Atmo UI**
+  A beautiful interface crafted with the principles of the Atmo design language. Rich textures, realistic lighting, and intuitive controls that honour the golden era of skeuomorphism.
+
+- **Qt & KDE Frameworks Powered**
+  Leveraging the power of Qt 5 for native performance and seamless integration with the SynOS desktop.
+
+- **Lightweight & Fast**
+  Engineered for minimal resource usage without compromising on a rich feature set, ensuring your media plays back smoothly.
+
+- **The Heart of Media on SynOS**
+  Intended as the de facto media player for SynOS, providing a deeply integrated and cohesive experience.
 
 ---
 
-## 🚀 Build & Install
+## 💾 Installation
+Installation has been tested on SynOS Canora (Beta 1) and should work on all Debian/Ubuntu-based Linux distributions with a Qt 5 based desktop environment.
 
+First, install dependencies:
+```bash
+sudo apt update && sudo apt install -y \
+    build-essential \
+    cmake \
+    qtbase5-dev \
+    qtbase5-dev-tools \
+    qtmultimedia5-dev \
+    libqt5multimedia5-plugins \
+    libkf5i18n-dev \
+    libkf5coreaddons-dev \
+    libkf5widgetsaddons-dev \
+    extra-cmake-modules
 ```
-git clone https://github.com/your-user/atmo-desktop.git
-cd atmo-desktop
-mkdir -p build && cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr
-make -j"$(nproc)"
+And then proceed to clone and build from source:
+
+```bash
+git clone https://github.com/phenom64/MediaSonic.git
+cd MediaSonic
+mkdir build && cd build
+cmake ../ -DCMAKE_INSTALL_PREFIX=/usr
+make -j$(nproc)
 sudo make install
 ```
 
-What gets installed:
-- Qt style plugin `Atmo` into Qt’s `plugins/styles` directory
-- Default config at `/usr/share/atmo/NSE.conf`
-- `atmo_config` helper CLI into `/usr/bin`
-- KWin decoration module (if KDecoration2 is present)
+---
 
-Uninstall:
-- From the build directory: `sudo make uninstall`
+## 🚧 Project Status
+
+    ⚠️ MediaSonic is currently in very early alpha.
+    While the application compiles and basic playback is functional, many components such as full metadata integration, playlist management,
+    and advanced view modes (like Cover Flow) are incomplete or experimental.
+    Retina display support is also currently a work in progress.
+
+Expect bugs, unfinished features, and rough edges. We welcome collaboration and testing, but this is not yet ready for daily use.
 
 ---
 
-## 🧩 Enabling Atmo in KDE
+## 🧠 Philosophy & Goals
+MediaSonic is more than just a media player. It's a statement against the sterile, flat, and ephemeral nature of modern software. We believe that interacting with your music and video library should be a personal and delightful experience, not just a utility. It's about bringing back the feeling of holding an album in your hands, the joy of a dedicated music machine, and the sense of ownership over your collection.
 
-- Widget Style: open System Settings → “Application Style” → pick `Atmo`.
-- Window Decoration: System Settings → “Window Decorations” → pick `Atmo` (requires KDecoration2; only shows if the decoration module was built).
-
-If the style does not appear, see Troubleshooting below.
-
----
-
-## ⚙️ Configuration (NSE.conf)
-
-Atmo reads settings from `~/.config/NSE/NSE.conf`.
-
-- First run: The project auto‑provisions `~/.config/NSE/NSE.conf` from `/usr/share/atmo/NSE.conf` if the user config is missing.
-- Edit directly with your editor, or use the helper:
-
-```
-# Write defaults (if you want to reset/seed values)
-atmo_config --writedefaults
-
-# Open the active config in your default text editor
-atmo_config --edit
-
-# Discover variables and get documentation
-atmo_config --listvars
-atmo_config --printinfo opacity
-```
-
-Notable sections (examples):
-- **Window decoration (`deco.*`):** Button style, shadow size/roundness, and icon visibility.
-- **Push/Tool buttons (`pushbtn.*`, `toolbtn.*`):** Roundness, gradients, shadows, tints.
-- **Inputs (`input.*`):** Roundness, shadow, gradient, tint.
-- **Tabs (`tabs.*`):** Safari/Chrome styles, roundness, gradients, close button position.
-- **UNO (`uno.*`):** Enable/disable, gradient, tint, noise, blur, overlay, orientation.
-- **Sliders/Scrollbars/Progress (`sliders.*`, `scrollers.*`, `progressbars.*`):** Size, gradients, groove styles, dot/metallic effects.
-- **Shadows (`shadows.*`):** Opacity and illumination for on‑widget and text shadows.
-
-Each key has an inline description in the source (see `config/settings.cpp`) and via `atmo_config --printinfo`.
-
----
-
-## 🧱 Project Structure
-
-- `atmolib/`: Core rendering, masks, animations, handlers, widgets (the Atmo style’s internal library)
-- `config/`: NSE settings library and `atmo_config` CLI
-- `kwin/`: KWin decoration (KDecoration2) and plugin metadata
-- `NSE.conf`: Default config template installed to `/usr/share/atmo/NSE.conf`
-- `README.md`: This document
-
----
-
-## 🔧 Development Notes
-
-- Style plugin key: `Atmo` (appears in Qt’s style list)
-- Namespace: `NSE` (New Syndromatic Experience)
-- Former names: `styleproject`/`DSP` → modernized to Atmo/NSE (Qt 5 only)
-- X11/XCB are used for certain effects; Wayland is partially supported
-
-Build tips:
-- Ensure `extra-cmake-modules` is installed so CMake can find KF5 and XCB.
-- To debug plugin discovery: `export QT_DEBUG_PLUGINS=1` then run a Qt app.
-
----
-
-## 🧪 Troubleshooting
-
-- **Style not listed under Application Style:**
-  - Verify the plugin installed to Qt’s plugin path: `qmake -query QT_INSTALL_PLUGINS`
-  - Ensure `libatmo.so` exists under `…/plugins/styles/`
-  - Try `QT_DEBUG_PLUGINS=1 systemsettings5` to check plugin load messages
-
-- **Decoration not listed:**
-  - Make sure `libkdecorations2-dev` was present at build time (module is optional)
-  - Reconfigure and rebuild after installing it
-
-- **No translucency/shadows on Wayland:**
-  - Effects using X11/xcb may not apply on Wayland sessions
-  - Use an X11 session for complete feature support
-
----
-
-## 🗺️ Roadmap
-
-- Continue Wayland parity where possible
-- Tidy deprecated Qt 5 APIs and smooth migration path to Qt 6
-- Expand presets and polish default palette/icon theme handling
-
----
-
-## 🙏 Credits
-
-- Original base: **styleproject** (c) 2013, Robert Metsaranta — Thank you for the foundation and inspiration.
-- Atmo/NSE: (c) 2025 Syndromatic Ltd.
-
-This project is distributed under the **GNU General Public License, version 2 or later (GPL‑2.0‑or‑later)**. See the per‑file headers and top‑level license notices.
-
----
-
-## 🌐 Links
-
-- Syndromatic: https://syndromatic.com
+As a cornerstone of the SynOS Atmo design language, MediaSonic will continue to evolve into a full-featured, skeuomorphic, and deeply human media experience that respects both the art it plays and the person listening.
