@@ -48,7 +48,7 @@
 #include <QListView>
 #include "sidebar.h"
 #include "lcddisplay.h"
-#include "dialogs/filepicker.h"
+#include <QMessageBox>
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
 #include <QStyledItemDelegate>
@@ -60,6 +60,11 @@
 #include "services/scanner.h"
 #include "visualizer/visualizerbridge.h"
 #include <KLocalizedString>
+#include <KFileWidget>
+#include <KFile>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QStandardPaths>
 
 // StarRatingDelegate for the Rating column
 class StarRatingDelegate : public QStyledItemDelegate {
@@ -575,10 +580,32 @@ void MainWindow::addFolder()
 
 void MainWindow::addToLibrary()
 {
-    FilePickerDialog dlg(this);
+    // KDE-native picker that supports selecting files and/or folders in one go
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("Add to Library"));
+    QVBoxLayout *v = new QVBoxLayout(&dlg);
+    KFileWidget *fw = new KFileWidget(QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::MusicLocation)), &dlg);
+    fw->setOperationMode(KFileWidget::Opening);
+    fw->setMode(KFile::File | KFile::Files | KFile::Directory | KFile::ExistingOnly | KFile::LocalOnly);
+    // Use glob patterns for broad compatibility (avoids MIME DB issues)
+    fw->setFilter(QStringLiteral("*.mp3 *.flac *.m4a *.wav *.ogg *.aac *.opus *.aiff *.wma"));
+    v->addWidget(fw);
+    QDialogButtonBox *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    v->addWidget(bb);
+    QObject::connect(bb, &QDialogButtonBox::accepted, fw, &KFileWidget::slotOk);
+    QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     if (dlg.exec() != QDialog::Accepted) return;
-    QStringList files = dlg.selectedPaths();
-    if (files.isEmpty()) return;
+
+    QStringList paths;
+    QList<QUrl> urls = fw->selectedUrls();
+    if (urls.isEmpty()) {
+        const QUrl single = fw->selectedUrl();
+        if (single.isValid()) urls << single;
+    }
+    for (const QUrl &u : urls) if (u.isLocalFile()) paths << u.toLocalFile();
+    if (paths.isEmpty()) return;
+
     if (!scanner) {
         scanner = new MS::Scanner(this);
         connect(scanner, &MS::Scanner::trackDiscovered, this, [this](const MS::Track &t){
@@ -606,7 +633,7 @@ void MainWindow::addToLibrary()
             updateStatusSummary();
         });
     }
-    scanner->scanPaths(files);
+    scanner->scanPaths(paths);
 }
 
 void MainWindow::scanDirectory(const QString &path)

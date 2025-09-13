@@ -42,7 +42,7 @@ message(STATUS "MS_DEBUG: ${MS_DEBUG}")
 find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Concurrent Xml REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "/usr/share/ECM/modules")
 list(APPEND CMAKE_MODULE_PATH "/usr/share/ECM/find-modules")
-find_package(KF5 COMPONENTS I18n CoreAddons WidgetsAddons REQUIRED)
+find_package(KF5 COMPONENTS I18n CoreAddons WidgetsAddons KIO REQUIRED)
 
 # Automatically run moc, uic, and rcc for build automation
 set(CMAKE_AUTOMOC ON)
@@ -85,8 +85,6 @@ set(PROJECT_SOURCES
     # Dialogs
     src/dialogs/aboutInfo.cpp
     src/dialogs/aboutInfo.h
-    src/dialogs/filepicker.cpp
-    src/dialogs/filepicker.h
     # Cover Flow (from DocSurf)
     src/flow.cpp
     src/flow.h
@@ -112,6 +110,8 @@ target_link_libraries(MediaSonic
     KF5::I18n
     KF5::CoreAddons
     KF5::WidgetsAddons
+    KF5::KIOWidgets
+    KF5::KIOFileWidgets
 )
 
 # Optional Taglib for metadata scanning
