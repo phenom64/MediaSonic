@@ -28,6 +28,7 @@
 #include <QRandomGenerator>
 #include "ui/atmo_style.h"
 #include <QVector>
+#include <QPainterPath>
 
 LcdDisplay::LcdDisplay(QWidget *parent)
     : QWidget(parent)
@@ -119,20 +120,29 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Draw LCD background
-    painter.fillRect(rect(), *lcdBackgroundGradient);
+    // Rounded bezel and inner fill (iTunes 10 style)
+    const int radius = 8;
+    QRect outer = rect().adjusted(0,0,-1,-1);
+    QPainterPath bezelPath; bezelPath.addRoundedRect(outer, radius, radius);
+    painter.setPen(QPen(QColor(150,150,130), 1));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(bezelPath);
 
-    // Draw LCD border - subtle iTunes style
-    painter.setPen(QPen(QColor(180, 185, 170), 1));
-    painter.drawRect(rect().adjusted(1, 1, -1, -1));
+    QRect inner = outer.adjusted(2,2,-2,-2);
+    QPainterPath innerPath; innerPath.addRoundedRect(inner, radius-2, radius-2);
+    painter.setClipPath(innerPath);
+    painter.fillRect(inner, *lcdBackgroundGradient);
+    painter.setClipping(false);
 
-    // Draw gloss effect (subtle highlight at top)
-    QLinearGradient gloss(rect().topLeft(), rect().bottomLeft());
-    gloss.setColorAt(0, QColor(255,255,255,60));
-    gloss.setColorAt(0.2, QColor(255,255,255,20));
-    gloss.setColorAt(1, QColor(255,255,255,0));
-    QRect glossRect = rect().adjusted(2, 2, -2, -height()/3);
+    // Gloss overlay at top half
+    QRect glossRect = QRect(inner.left(), inner.top(), inner.width(), inner.height()/2);
+    QLinearGradient gloss(inner.topLeft(), inner.bottomLeft());
+    gloss.setColorAt(0.0, QColor(255,255,255,90));
+    gloss.setColorAt(0.6, QColor(255,255,255,20));
+    gloss.setColorAt(1.0, QColor(255,255,255,0));
+    painter.setClipPath(innerPath);
     painter.fillRect(glossRect, gloss);
+    painter.setClipping(false);
 
     // If no track is playing, show centered Syndromatic logo
     if (displayTitle.isEmpty() && displayArtist.isEmpty()) {
@@ -145,10 +155,10 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     }
 
     // Draw play icon (clickable for visualizer)
-    int playIconSize = 24;
-    QRect playIconRect(10, (height()-playIconSize)/2, playIconSize, playIconSize);
-    painter.setBrush(QColor(200, 220, 180));
-    painter.setPen(Qt::NoPen);
+    int playIconSize = 18;
+    QRect playIconRect(inner.left()+6, inner.center().y()-playIconSize/2, playIconSize, playIconSize);
+    painter.setBrush(QColor(220, 230, 210));
+    painter.setPen(QPen(QColor(120, 140, 110), 1));
     painter.drawEllipse(playIconRect);
     painter.setPen(QPen(QColor(60, 80, 60), 2));
     QPointF points[3] = {
@@ -188,43 +198,59 @@ void LcdDisplay::paintEvent(QPaintEvent *event)
     }
     QFontMetrics fm(dynTitle);
     displayText = fm.elidedText(displayText, Qt::ElideRight, width() - (playIconRect.right()+20));
-    painter.drawText(rect().adjusted(playIconRect.right()+10, 5, -10, -height()/2), Qt::AlignHCenter | Qt::AlignVCenter, displayText);
+    painter.drawText(inner.adjusted(playIconRect.right()+10, 6, -10, -inner.height()/2), Qt::AlignHCenter | Qt::AlignVCenter, displayText);
 
-    // Draw elapsed and remaining time
-    QFont dynTime = *timeFont; dynTime.setPixelSize(qMax(8, height()/4));
+    // Draw elapsed and right time (remaining/total)
+    QFont dynTime = *timeFont; dynTime.setPixelSize(qMax(9, height()/4));
     painter.setFont(dynTime);
     painter.setPen(QPen(lcdTextColor, 1));
-    QString timeStr = elapsedTime;
-    if (duration > 0) {
-        int secs = (duration-position)/1000;
-        QString rem = QString("-%1:%2").arg(secs/60,2,10,QChar('0')).arg(secs%60,2,10,QChar('0'));
-        timeStr += "  " + rem;
-    }
-    painter.drawText(rect().adjusted(playIconRect.right()+10, height()/2, -10, -5), Qt::AlignLeft | Qt::AlignBottom, timeStr);
+    auto toMinSec = [](qint64 ms){ int s = int(ms/1000); return QString("%1:%2").arg(s/60,2,10,QChar('0')).arg(s%60,2,10,QChar('0')); };
+    QString elapsed = toMinSec(position);
+    QString right = duration>0 ? (showRemainingNotTotal ? QString("-")+toMinSec(duration-position) : toMinSec(duration)) : QString();
+    QFontMetrics tfm(dynTime);
+    int lwidth = tfm.horizontalAdvance(elapsed);
+    int rwidth = tfm.horizontalAdvance(right);
+    leftTimeRect  = QRect(inner.left()+playIconRect.width()+14, inner.center().y(), lwidth, tfm.height());
+    rightTimeRect = QRect(inner.right()-rwidth-10, inner.center().y(), rwidth, tfm.height());
+    painter.drawText(leftTimeRect, Qt::AlignLeft|Qt::AlignVCenter, elapsed);
+    if (!right.isEmpty()) painter.drawText(rightTimeRect, Qt::AlignRight|Qt::AlignVCenter, right);
 
     // Draw seek slider with knob
     if (duration > 0) {
-        painter.fillRect(seekSliderRect, seekSliderBackgroundColor);
+        // Update seek slider area between time labels
+        int leftEdge = leftTimeRect.right() + 12;
+        int rightEdge = rightTimeRect.left() - 12;
+        if (rightEdge - leftEdge < 40) { leftEdge = inner.left()+40; rightEdge = inner.right()-40; }
+        seekSliderRect = QRect(leftEdge, inner.bottom()- (seekSliderHeight+8), rightEdge-leftEdge, seekSliderHeight);
+        // Groove
+        QPainterPath groovePath; groovePath.addRoundedRect(seekSliderRect, 3, 3);
+        painter.setClipPath(groovePath);
+        painter.fillRect(seekSliderRect, QColor(230, 235, 220));
         int progressWidth = (position * seekSliderRect.width()) / duration;
-        QRect progressRect = seekSliderRect;
-        progressRect.setWidth(progressWidth);
-        painter.fillRect(progressRect, seekSliderColor);
-        painter.setPen(QPen(QColor(100, 120, 100), 1));
-        painter.drawRect(seekSliderRect);
+        QRect progressRect = seekSliderRect; progressRect.setWidth(progressWidth);
+        painter.fillRect(progressRect, QColor(150, 170, 140));
+        painter.setClipping(false);
+        painter.setPen(QPen(QColor(120, 135, 110), 1));
+        painter.drawPath(groovePath);
         // Knob
         int knobX = seekSliderRect.x() + progressWidth;
-        QRect knobRect(knobX-3, seekSliderRect.y()-2, 6, seekSliderRect.height()+4);
-        painter.fillRect(knobRect, QColor(80,100,80));
+        QRect knobRect(knobX-4, seekSliderRect.y()-3, 8, seekSliderRect.height()+6);
+        painter.fillRect(knobRect, QColor(90,110,90));
     }
 }
 
 void LcdDisplay::mousePressEvent(QMouseEvent *event)
 {
-    int playIconSize = 24;
-    QRect playIconRect(10, (height()-playIconSize)/2, playIconSize, playIconSize);
+    int playIconSize = 18;
+    QRect playIconRect(6, (height()-playIconSize)/2, playIconSize, playIconSize);
     if (event->button() == Qt::LeftButton && playIconRect.contains(event->pos())) {
         visualizerActive = !visualizerActive;
         updateDisplay();
+        return;
+    }
+    if (event->button() == Qt::LeftButton && rightTimeRect.contains(event->pos())) {
+        showRemainingNotTotal = !showRemainingNotTotal;
+        update();
         return;
     }
     if (event->button() == Qt::LeftButton && seekSliderRect.contains(event->pos())) {

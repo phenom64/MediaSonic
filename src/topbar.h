@@ -44,6 +44,7 @@ class LcdDisplay;
 class VolumeSlider;
 class SeekSlider;
 class ViewSwitcher;
+class RoundButton;
 
 /**
  * @brief TopBar - The main control bar for MediaSonic
@@ -127,10 +128,10 @@ private:
     QHBoxLayout *mainLayout;
     
     // Playback controls
-    QPushButton *previousButton;
-    QPushButton *playPauseButton;
-    QPushButton *nextButton;
-    QPushButton *stopButton;
+    RoundButton *previousButton;
+    RoundButton *playPauseButton;
+    RoundButton *nextButton;
+    RoundButton *stopButton;
     
     // Volume control
     VolumeSlider *volumeSlider;
@@ -210,6 +211,16 @@ private:
     QColor sliderHandleColor;
     QColor sliderProgressColor;
     QColor sliderBorderColor;
+};
+
+// A small circular metal button that fits Atmo/Itunes style
+class RoundButton : public QPushButton
+{
+    Q_OBJECT
+public:
+    explicit RoundButton(QWidget *parent=nullptr);
+protected:
+    void paintEvent(QPaintEvent *e) override;
 };
 
 /**

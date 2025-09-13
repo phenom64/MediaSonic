@@ -106,30 +106,30 @@ void TopBar::setupUi()
 void TopBar::setupPlaybackControls()
 {
     // Previous button
-    previousButton = new QPushButton(this);
+    previousButton = new RoundButton(this);
     previousButton->setText("⏮");
     previousButton->setFixedSize(32, 32);
     previousButton->setFont(*buttonFont);
     connect(previousButton, &QPushButton::clicked, this, &TopBar::onPreviousClicked);
 
     // Play/Pause button
-    playPauseButton = new QPushButton(this);
+    playPauseButton = new RoundButton(this);
     playPauseButton->setText("▶");
-    playPauseButton->setFixedSize(40, 32);
+    playPauseButton->setFixedSize(36, 36);
     playPauseButton->setFont(*buttonFont);
     connect(playPauseButton, &QPushButton::clicked, this, &TopBar::onPlayPauseClicked);
 
     // Next button
-    nextButton = new QPushButton(this);
+    nextButton = new RoundButton(this);
     nextButton->setText("⏭");
     nextButton->setFixedSize(32, 32);
     nextButton->setFont(*buttonFont);
     connect(nextButton, &QPushButton::clicked, this, &TopBar::onNextClicked);
 
     // Stop button
-    stopButton = new QPushButton(this);
+    stopButton = new RoundButton(this);
     stopButton->setText("⏹");
-    stopButton->setFixedSize(32, 32);
+    stopButton->setFixedSize(28, 28);
     stopButton->setFont(*buttonFont);
     connect(stopButton, &QPushButton::clicked, this, &TopBar::stopClicked);
 
@@ -178,7 +178,7 @@ void TopBar::setupViewSwitcher()
 void TopBar::setupSearchBar()
 {
     searchBar = new QLineEdit(this);
-    searchBar->setPlaceholderText("Search...");
+    searchBar->setPlaceholderText("Search Music");
     searchBar->setFont(*searchFont);
     searchBar->setFixedSize(150, 24);
     connect(searchBar, &QLineEdit::textChanged, this, &TopBar::onSearchTextChanged);
@@ -396,6 +396,54 @@ void VolumeSlider::mouseMoveEvent(QMouseEvent *event) { QSlider::mouseMoveEvent(
 void VolumeSlider::mouseReleaseEvent(QMouseEvent *event) { QSlider::mouseReleaseEvent(event); }
 
 // ============================================================================
+// RoundButton Implementation
+// ============================================================================
+
+RoundButton::RoundButton(QWidget *parent) : QPushButton(parent)
+{
+    setFlat(true);
+    setFocusPolicy(Qt::NoFocus);
+    setCursor(Qt::PointingHandCursor);
+}
+
+void RoundButton::paintEvent(QPaintEvent *e)
+{
+    Q_UNUSED(e)
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const int d = qMin(width(), height());
+    const QRectF r((width()-d)/2.0, (height()-d)/2.0, d-1, d-1);
+
+    // Bezel gradient (soft metal) with hover/press feedback
+    const bool hover = underMouse();
+    const bool down  = isDown();
+    QLinearGradient g(r.topLeft(), r.bottomLeft());
+    int k = down ? -20 : (hover ? 10 : 0);
+    auto tone = [k](int v){ return qBound(0, v + k, 255); };
+    g.setColorAt(0, QColor(tone(248),tone(248),tone(248)));
+    g.setColorAt(0.5, QColor(tone(220),tone(220),tone(220)));
+    g.setColorAt(1, QColor(tone(198),tone(198),tone(198)));
+    p.setBrush(g);
+    p.setPen(QPen(QColor(150,150,150), 1));
+    p.drawEllipse(r);
+
+    // Inner gloss
+    QRadialGradient gloss(r.center(), d/2.0, QPointF(r.center().x(), r.top()+d*0.25));
+    gloss.setColorAt(0, QColor(255,255,255, down?60:160));
+    gloss.setColorAt(1, QColor(255,255,255, down?10:30));
+    p.setBrush(gloss);
+    p.setPen(Qt::NoPen);
+    p.drawEllipse(r.adjusted(1,1,-1,-1));
+
+    // Symbol
+    QFont f = font();
+    f.setBold(true);
+    p.setFont(f);
+    p.setPen(QPen(QColor(70,70,70), down?1:2));
+    p.drawText(rect(), Qt::AlignCenter, text());
+}
+
+// ============================================================================
 // ViewSwitcher Implementation
 // ============================================================================
 
@@ -494,14 +542,5 @@ void ViewSwitcher::setCurrentView(int viewIndex)
 void ViewSwitcher::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
-    
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-
-    // Draw background
-    painter.fillRect(rect(), *buttonBackgroundGradient);
-
-    // Draw borders
-    painter.setPen(QPen(buttonBorderColor, 1));
-    painter.drawRect(rect().adjusted(0, 0, -1, -1));
-} 
+    // Intentionally empty: let UNO/Atmo paint beneath
+}

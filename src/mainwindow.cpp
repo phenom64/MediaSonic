@@ -196,14 +196,12 @@ void MainWindow::setupUi()
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // UNO toolbar hosting our TopBar; title centering added after content
+    // UNO toolbar hosting our TopBar; keep it clean (no duplicate title text)
     NSEUI::NSEUnoToolBar *unoToolBar = new NSEUI::NSEUnoToolBar(this, this);
     // Create TopBar and add into toolbar
     topBar = new TopBar(unoToolBar);
     topBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     unoToolBar->addWidget(topBar);
-    // Now enable centered title so spacers surround the existing content
-    unoToolBar->enableCenteredTitle(this);
     addToolBar(Qt::TopToolBarArea, unoToolBar);
 
     // View Header (Albums, Artists, Genres, Composers buttons)

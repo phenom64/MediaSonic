@@ -87,6 +87,11 @@ private:
     // Visualizer state
     bool visualizerActive;
     QVector<float> levelBins;
+
+    // Time display state
+    bool showRemainingNotTotal = true; // toggles right time between remaining and total
+    QRect leftTimeRect;
+    QRect rightTimeRect;
 };
 
 #endif // LCDDISPLAY_H 
