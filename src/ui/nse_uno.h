@@ -9,12 +9,6 @@
 #include <QLabel>
 
 // Forward-declare Atmo UNO manager and include when available.
-#ifdef __has_include
-#  if __has_include("atmolib/titlewidget.h")
-#    include "atmolib/titlewidget.h"
-#    define MS_HAVE_ATMO_UNO 1
-#  endif
-#endif
 
 namespace NSEUI {
 
@@ -36,6 +30,9 @@ public:
     explicit NSEUnoToolBar(QWidget *window, QWidget *parent = nullptr);
     QLabel *titleLabel() const { return m_titleLabel; }
     void setTitleText(const QString &text);
+    // Call after adding your left-side content (e.g., TopBar) to center the
+    // window title within the remaining space of the toolbar.
+    void enableCenteredTitle(QWidget *window);
 
 private:
     void initCommon();
@@ -46,4 +43,3 @@ private:
 } // namespace NSEUI
 
 #endif // MEDIASONIC_UI_NSE_UNO_H
-

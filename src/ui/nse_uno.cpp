@@ -10,10 +10,7 @@ NSEUnoToolBar::NSEUnoToolBar(QWidget *window, QWidget *parent)
     , m_titleLabel(nullptr)
 {
     initCommon();
-#ifdef MS_HAVE_ATMO_UNO
-    NSE::TitleWidget::manage(this);
-#endif
-    if (window) installCenterTitle(window);
+    Q_UNUSED(window); // Title centering enabled explicitly later
 }
 
 void NSEUnoToolBar::initCommon()
@@ -25,9 +22,16 @@ void NSEUnoToolBar::initCommon()
     setContentsMargins(0, 0, 0, 0);
 }
 
+void NSEUnoToolBar::enableCenteredTitle(QWidget *window)
+{
+    // Append spacers and title after any existing content (e.g., TopBar),
+    // so that expanding spacers center the title and keep content on edges.
+    installCenterTitle(window);
+}
+
 void NSEUnoToolBar::installCenterTitle(QWidget *window)
 {
-    // Left spacer to push title to center
+    // Left spacer to push title to center; added after current content
     QWidget *left = new NSESpacer(this);
     addWidget(left);
 
@@ -52,4 +56,3 @@ void NSEUnoToolBar::setTitleText(const QString &text)
 {
     if (m_titleLabel) m_titleLabel->setText(text);
 }
-

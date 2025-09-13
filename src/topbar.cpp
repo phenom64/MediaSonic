@@ -189,49 +189,16 @@ void TopBar::setupSearchBar()
 
 void TopBar::setupStyling()
 {
-    // Set background color
-    setAutoFillBackground(true);
-    QPalette pal = palette();
-    pal.setColor(QPalette::Window, backgroundColor);
-    setPalette(pal);
-
-    // Apply styling to buttons
-    QString buttonStyle = 
-        "QPushButton {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #f0f0f0, stop:1 #d0d0d0);"
-        "    border: 1px solid #a0a0a0;"
-        "    border-radius: 4px;"
-        "    color: #404040;"
-        "    font-weight: bold;"
-        "}"
-        "QPushButton:hover {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #e8e8e8, stop:1 #c8c8c8);"
-        "}"
-        "QPushButton:pressed {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #c0c0c0, stop:1 #a0a0a0);"
-        "}";
-
-    previousButton->setStyleSheet(buttonStyle);
-    playPauseButton->setStyleSheet(buttonStyle);
-    nextButton->setStyleSheet(buttonStyle);
-    stopButton->setStyleSheet(buttonStyle);
-
-    // Search bar styling
-    searchBar->setStyleSheet(
-        "QLineEdit {"
-        "    background: white;"
-        "    border: 1px solid #a0a0a0;"
-        "    border-radius: 3px;"
-        "    padding: 2px 6px;"
-        "    color: #404040;"
-        "}"
-        "QLineEdit:focus {"
-        "    border: 1px solid #0078d4;"
-        "}"
-    );
+    // Let the active QStyle (Atmo NSE) paint everything by default.
+    // If embedded in a QToolBar (UNO), keep background transparent.
+    if (qobject_cast<QToolBar*>(parentWidget())) {
+        setAutoFillBackground(false);
+    } else {
+        setAutoFillBackground(true);
+        QPalette pal = palette();
+        pal.setColor(QPalette::Window, backgroundColor);
+        setPalette(pal);
+    }
 }
 
 void TopBar::createGradients()
@@ -246,18 +213,14 @@ void TopBar::createGradients()
 void TopBar::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
-    // When hosted inside a QToolBar, let UNO/style paint the background
+    // If hosted inside a QToolBar, UNO paints the background.
     if (qobject_cast<QToolBar*>(parentWidget())) {
-        return; // transparent background to blend with UNO
+        return;
     }
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-
-    // Draw background gradient for standalone usage
     painter.fillRect(rect(), *backgroundGradient);
-
-    // Subtle bottom border
     painter.setPen(QPen(QColor(180, 180, 180), 1));
     painter.drawLine(0, height() - 1, width(), height() - 1);
 }
@@ -411,14 +374,8 @@ VolumeSlider::VolumeSlider(QWidget *parent)
     , sliderHandleGradient(nullptr)
     , sliderProgressGradient(nullptr)
 {
-    // Initialize colors
-    sliderBackgroundColor = QColor(200, 200, 200);
-    sliderHandleColor = QColor(180, 180, 180);
-    sliderProgressColor = QColor(100, 150, 255);
-    sliderBorderColor = QColor(120, 120, 120);
-
-    createSliderGradients();
-    setMouseTracking(true);
+    // Rely on style to paint; keep defaults minimal.
+    setOrientation(Qt::Horizontal);
 }
 
 VolumeSlider::~VolumeSlider()
@@ -428,82 +385,15 @@ VolumeSlider::~VolumeSlider()
     delete sliderProgressGradient;
 }
 
-void VolumeSlider::createSliderGradients()
-{
-    // Background gradient
-    sliderBackgroundGradient = new QLinearGradient(0, 0, 0, height());
-    sliderBackgroundGradient->setColorAt(0, QColor(220, 220, 220));
-    sliderBackgroundGradient->setColorAt(1, QColor(200, 200, 200));
+void VolumeSlider::createSliderGradients() { /* not used with style-based painting */ }
 
-    // Handle gradient
-    sliderHandleGradient = new QLinearGradient(0, 0, 0, height());
-    sliderHandleGradient->setColorAt(0, QColor(240, 240, 240));
-    sliderHandleGradient->setColorAt(1, QColor(200, 200, 200));
+void VolumeSlider::paintEvent(QPaintEvent *event) { QSlider::paintEvent(event); }
 
-    // Progress gradient
-    sliderProgressGradient = new QLinearGradient(0, 0, 0, height());
-    sliderProgressGradient->setColorAt(0, QColor(120, 170, 255));
-    sliderProgressGradient->setColorAt(1, QColor(100, 150, 255));
-}
+void VolumeSlider::mousePressEvent(QMouseEvent *event) { QSlider::mousePressEvent(event); }
 
-void VolumeSlider::paintEvent(QPaintEvent *event)
-{
-    Q_UNUSED(event)
-    
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
+void VolumeSlider::mouseMoveEvent(QMouseEvent *event) { QSlider::mouseMoveEvent(event); }
 
-    int handleWidth = 12;
-    int handleHeight = height() - 4;
-    int sliderWidth = width() - handleWidth;
-    
-    // Calculate handle position
-    int handleX = (value() * sliderWidth) / (maximum() - minimum());
-
-    // Draw background
-    painter.fillRect(rect(), *sliderBackgroundGradient);
-
-    // Draw progress
-    QRect progressRect = rect();
-    progressRect.setWidth(handleX + handleWidth / 2);
-    painter.fillRect(progressRect, *sliderProgressGradient);
-
-    // Draw handle
-    QRect handleRect(handleX, 2, handleWidth, handleHeight);
-    painter.fillRect(handleRect, *sliderHandleGradient);
-
-    // Draw borders
-    painter.setPen(QPen(sliderBorderColor, 1));
-    painter.drawRect(rect().adjusted(0, 0, -1, -1));
-    painter.drawRect(handleRect);
-}
-
-void VolumeSlider::mousePressEvent(QMouseEvent *event)
-{
-    if (event->button() == Qt::LeftButton) {
-        isDragging = true;
-        int x = event->pos().x();
-        int newValue = ((x - 6) * (maximum() - minimum())) / (width() - 12);
-        newValue = qBound(minimum(), newValue, maximum());
-        setValue(newValue);
-    }
-}
-
-void VolumeSlider::mouseMoveEvent(QMouseEvent *event)
-{
-    if (isDragging) {
-        int x = event->pos().x();
-        int newValue = ((x - 6) * (maximum() - minimum())) / (width() - 12);
-        newValue = qBound(minimum(), newValue, maximum());
-        setValue(newValue);
-    }
-}
-
-void VolumeSlider::mouseReleaseEvent(QMouseEvent *event)
-{
-    Q_UNUSED(event)
-    isDragging = false;
-}
+void VolumeSlider::mouseReleaseEvent(QMouseEvent *event) { QSlider::mouseReleaseEvent(event); }
 
 // ============================================================================
 // ViewSwitcher Implementation

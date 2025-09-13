@@ -21,12 +21,9 @@
 
 #include "application.h"
 #include "mainwindow.h"
-#ifdef __has_include
-#  if __has_include("nse.h")
-#    include "nse.h"
-#    define MS_HAVE_ATMO 1
-#  endif
-#endif
+#include <QStylePlugin>
+#include <QPluginLoader>
+#include <QStyleFactory>
 #include <QFontDatabase>
 #include <QDir>
 #include <KLocalizedString>
@@ -82,28 +79,62 @@ int main(int argc, char *argv[])
     }
 
     // Apply Atmo NSE style if available (pretty everywhere; native on SynOS)
-#ifdef MS_HAVE_ATMO
     try {
         // Allow users to opt-out via env var
         if (qEnvironmentVariable("MS_NO_NSE").isEmpty()) {
-            qApp->setStyle(new NSE::Style());
+            // Try to load the Atmo style plugin dynamically from the build tree
+            QString base = QCoreApplication::applicationDirPath() + "/../NSE/atmo";
+            QStringList candidates;
+#if defined(Q_OS_WIN)
+            candidates << base + "/atmo.dll";
+#elif defined(Q_OS_MAC)
+            candidates << base + "/libatmo.dylib";
+#else
+            candidates << base + "/libatmo.so";
+#endif
+            bool styled = false;
+            for (const QString &lib : candidates) {
+                if (!QFile::exists(lib)) continue;
+                QPluginLoader loader(lib);
+                QObject *inst = loader.instance();
+                if (!inst) continue;
+                if (QStylePlugin *sp = qobject_cast<QStylePlugin*>(inst)) {
+                    if (QStyle *s = sp->create(QStringLiteral("Atmo"))) {
+                        qApp->setStyle(s);
+                        styled = true;
+                        break;
+                    }
+                }
+            }
+            if (!styled) {
+                // Fallback to factory if plugin is installed in a standard path
+                if (QStyle *s = QStyleFactory::create(QStringLiteral("Atmo"))) {
+                    qApp->setStyle(s);
+                }
+            }
         }
         // Ensure a config is present for NSE so the look matches expectations
         const QString userDir = QDir::homePath() + "/.config/NSE";
         const QString userConf = userDir + "/NSE.conf";
         if (!QFile::exists(userConf)) {
             QDir().mkpath(userDir);
-            // Try to copy from the sibling Atmo-Desktop checkout
-            const QString bundled = QCoreApplication::applicationDirPath() + "/../3rdparty/atmo/NSE.conf"; // unlikely
-            QString fallback = QStringLiteral("%1/NSE.conf").arg(QStringLiteral("/home/phenom/Atmo-Desktop"));
+            // Try to copy from build path (NSE/atmo) or the fetched source dir
+            const QString buildNSE = QCoreApplication::applicationDirPath() + "/../NSE/atmo/NSE.conf";
+            QString sourceDir;
+#ifdef MS_ATMO_SOURCE_DIR
+            sourceDir = QStringLiteral(MS_ATMO_SOURCE_DIR);
+#endif
+            const QString srcNSE = sourceDir.isEmpty() ? QString() : (sourceDir + "/NSE.conf");
+            const QString fallback = QStringLiteral("%1/NSE.conf").arg(QStringLiteral("/home/phenom/Atmo-Desktop"));
             QString src;
-            if (QFile::exists(bundled)) src = bundled; else if (QFile::exists(fallback)) src = fallback;
+            if (QFile::exists(buildNSE)) src = buildNSE;
+            else if (!srcNSE.isEmpty() && QFile::exists(srcNSE)) src = srcNSE;
+            else if (QFile::exists(fallback)) src = fallback;
             if (!src.isEmpty()) QFile::copy(src, userConf);
         }
     } catch (...) {
         // Fallback silently to platform default style
     }
-#endif
 
     // Ensure only one instance of the application is running
     if (app.isRunning()) {

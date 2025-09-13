@@ -126,7 +126,11 @@ elseif(ATMO_USE_FETCH)
     GIT_SHALLOW    OFF
     UPDATE_DISCONNECTED ON
   )
-  FetchContent_MakeAvailable(atmo)
+  # We only populate to control the build dir name; do not MakeAvailable
+  FetchContent_GetProperties(atmo)
+  if(NOT atmo_POPULATED)
+    FetchContent_Populate(atmo)
+  endif()
   set(_HAVE_ATMO ON)
   set(_ATMO_SOURCE ${atmo_SOURCE_DIR})
 endif()
@@ -138,12 +142,8 @@ if(_HAVE_ATMO)
   # Build the Atmo project under a neat path in the build tree
   add_subdirectory("${_ATMO_SOURCE}" "${CMAKE_BINARY_DIR}/NSE/atmo")
 
-  target_include_directories(MediaSonic PRIVATE
-    "${_ATMO_SOURCE}"
-    "${_ATMO_SOURCE}/atmolib"
-    "${_ATMO_SOURCE}/config"
-  )
-  target_link_libraries(MediaSonic atmolib nsesettings atmo)
+  # Define source dir for runtime NSE.conf provisioning
+  target_compile_definitions(MediaSonic PRIVATE MS_ATMO_SOURCE_DIR="$<IF:$<BOOL:${_ATMO_SOURCE}>,${_ATMO_SOURCE},>")
 else()
   message(WARNING "Atmo-Desktop missing: define ATMO_DIR or enable ATMO_USE_FETCH to get UNO + style.")
 endif()

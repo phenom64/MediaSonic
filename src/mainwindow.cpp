@@ -196,13 +196,14 @@ void MainWindow::setupUi()
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // UNO toolbar hosting our TopBar and centered window title
+    // UNO toolbar hosting our TopBar; title centering added after content
     NSEUI::NSEUnoToolBar *unoToolBar = new NSEUI::NSEUnoToolBar(this, this);
     // Create TopBar and add into toolbar
     topBar = new TopBar(unoToolBar);
     topBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     unoToolBar->addWidget(topBar);
-    // Centered window title is handled inside NSEUnoToolBar
+    // Now enable centered title so spacers surround the existing content
+    unoToolBar->enableCenteredTitle(this);
     addToolBar(Qt::TopToolBarArea, unoToolBar);
 
     // View Header (Albums, Artists, Genres, Composers buttons)
@@ -217,37 +218,7 @@ void MainWindow::setupUi()
     genresButton = new QPushButton("Genres", viewHeader);
     composersButton = new QPushButton("Composers", viewHeader);
     
-    // Style the buttons to match iTunes 9
-    QString buttonStyle = 
-        "QPushButton {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #f8f8f8, stop:1 #e8e8e8);"
-        "    border: 1px solid #c0c0c0;"
-        "    border-radius: 3px;"
-        "    padding: 4px 12px;"
-        "    color: #404040;"
-        "    font-size: 11px;"
-        "    font-weight: bold;"
-        "}"
-        "QPushButton:hover {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #f0f0f0, stop:1 #e0e0e0);"
-        "}"
-        "QPushButton:pressed {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #e0e0e0, stop:1 #d0d0d0);"
-        "}"
-        "QPushButton:checked {"
-        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "        stop:0 #0078d4, stop:1 #0063b1);"
-        "    color: white;"
-        "    border: 1px solid #005a9e;"
-        "}";
-    
-    albumsButton->setStyleSheet(buttonStyle);
-    artistsButton->setStyleSheet(buttonStyle);
-    genresButton->setStyleSheet(buttonStyle);
-    composersButton->setStyleSheet(buttonStyle);
+    // Allow the active style (Atmo NSE) to paint these buttons.
     
     // Make buttons checkable
     albumsButton->setCheckable(true);
@@ -381,18 +352,8 @@ void MainWindow::setupUi()
     // Add speaker icon on the right
     QPushButton *speakerIcon = new QPushButton(statusBar);
     speakerIcon->setIcon(QIcon(":/gfx/icons/volume.png"));
-    speakerIcon->setFixedSize(20, 20);
-    speakerIcon->setStyleSheet(
-        "QPushButton {"
-        "    border: none;"
-        "    background: transparent;"
-        "    padding: 0px;"
-        "}"
-        "QPushButton:hover {"
-        "    background-color: rgba(0, 0, 0, 0.1);"
-        "    border-radius: 2px;"
-        "}"
-    );
+    speakerIcon->setFlat(true);
+    speakerIcon->setFixedSize(22, 22);
     statusBar->addPermanentWidget(speakerIcon);
 
     connect(topBar, &TopBar::viewSwitched, this, [this](int idx) {
@@ -423,6 +384,13 @@ void MainWindow::setupMenuBar()
     addLibraryAction->setShortcut(QKeySequence::Open);
     connect(addLibraryAction, &QAction::triggered, this, &MainWindow::addToLibrary);
     fileMenu->addAction(addLibraryAction);
+    // Portable fallbacks: Add Files..., Add Folder...
+    QAction *addFilesAction = new QAction(tr("Add Files..."), this);
+    connect(addFilesAction, &QAction::triggered, this, &MainWindow::addFiles);
+    fileMenu->addAction(addFilesAction);
+    QAction *addFolderAction = new QAction(tr("Add Folder..."), this);
+    connect(addFolderAction, &QAction::triggered, this, &MainWindow::addFolder);
+    fileMenu->addAction(addFolderAction);
     fileMenu->addSeparator();
     QAction *exitAction = fileMenu->addAction(tr("E&xit"));
     connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
@@ -479,33 +447,7 @@ void MainWindow::createModels()
     trackListView->horizontalHeader()->setStretchLastSection(true);
     trackListView->verticalHeader()->setDefaultSectionSize(22); // Compact row height
     
-    // Style the track list to match iTunes 9
-    trackListView->setStyleSheet(
-        "QTableView {"
-        "    background-color: white;"
-        "    alternate-background-color: #f8f8f8;"
-        "    gridline-color: #e0e0e0;"
-        "    selection-background-color: #0078d4;"
-        "    selection-color: white;"
-        "}"
-        "QTableView::item {"
-        "    padding: 2px;"
-        "    border: none;"
-        "}"
-        "QTableView::item:selected {"
-        "    background-color: #0078d4;"
-        "    color: white;"
-        "}"
-        "QHeaderView::section {"
-        "    background-color: #f0f0f0;"
-        "    border: 1px solid #d0d0d0;"
-        "    padding: 4px;"
-        "    font-weight: bold;"
-        "    color: #404040;"
-        "}"
-    );
-    if (coverFlowTrackList)
-        coverFlowTrackList->setStyleSheet(trackListView->styleSheet());
+    // Let the style handle the track views.
     
     // Add custom delegate for star rating in Rating column (proxy column index preserved)
     trackListView->setItemDelegateForColumn(MS::TrackModel::ColRating, new StarRatingDelegate(trackListView));
@@ -588,30 +530,42 @@ void MainWindow::addFolder()
 
 void MainWindow::addToLibrary()
 {
-    // KDE-native picker that supports selecting files and/or folders in one go
-    QDialog dlg(this);
-    dlg.setWindowTitle(tr("Add to Library"));
-    QVBoxLayout *v = new QVBoxLayout(&dlg);
-    KFileWidget *fw = new KFileWidget(QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::MusicLocation)), &dlg);
-    fw->setOperationMode(KFileWidget::Opening);
-    fw->setMode(KFile::File | KFile::Files | KFile::Directory | KFile::ExistingOnly | KFile::LocalOnly);
-    // Use glob patterns for broad compatibility (avoids MIME DB issues)
-    fw->setFilter(QStringLiteral("*.mp3 *.flac *.m4a *.wav *.ogg *.aac *.opus *.aiff *.wma"));
-    v->addWidget(fw);
-    QDialogButtonBox *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
-    v->addWidget(bb);
-    QObject::connect(bb, &QDialogButtonBox::accepted, fw, &KFileWidget::slotOk);
-    QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
-    QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
-    if (dlg.exec() != QDialog::Accepted) return;
-
+    // Prefer KDE-native multi-picker when available, else fallback to Qt dialogs.
     QStringList paths;
-    QList<QUrl> urls = fw->selectedUrls();
-    if (urls.isEmpty()) {
-        const QUrl single = fw->selectedUrl();
-        if (single.isValid()) urls << single;
+    {
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Add to Library"));
+        QVBoxLayout *v = new QVBoxLayout(&dlg);
+        KFileWidget *fw = new KFileWidget(QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::MusicLocation)), &dlg);
+        fw->setOperationMode(KFileWidget::Opening);
+        fw->setMode(KFile::File | KFile::Files | KFile::Directory | KFile::ExistingOnly | KFile::LocalOnly);
+        fw->setFilter(QStringLiteral("*.mp3 *.flac *.m4a *.wav *.ogg *.aac *.opus *.aiff *.wma"));
+        v->addWidget(fw);
+        QDialogButtonBox *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+        v->addWidget(bb);
+        QObject::connect(bb, &QDialogButtonBox::accepted, fw, &KFileWidget::slotOk);
+        QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+        QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        if (dlg.exec() == QDialog::Accepted) {
+            QList<QUrl> urls = fw->selectedUrls();
+            if (urls.isEmpty()) {
+                const QUrl single = fw->selectedUrl();
+                if (single.isValid()) urls << single;
+            }
+            for (const QUrl &u : urls) if (u.isLocalFile()) paths << u.toLocalFile();
+        }
     }
-    for (const QUrl &u : urls) if (u.isLocalFile()) paths << u.toLocalFile();
+    if (paths.isEmpty()) {
+        // Fallback: ask for multiple files and/or a single folder in two steps.
+        const QStringList files = QFileDialog::getOpenFileNames(
+            this, tr("Add Files"), QStandardPaths::writableLocation(QStandardPaths::MusicLocation),
+            tr("Audio Files (*.mp3 *.flac *.m4a *.wav *.ogg *.aac *.opus *.aiff *.wma);;All Files (*)"));
+        if (!files.isEmpty()) paths << files;
+        const QString dir = QFileDialog::getExistingDirectory(
+            this, tr("Add Folder"), QStandardPaths::writableLocation(QStandardPaths::MusicLocation),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (!dir.isEmpty()) paths << dir;
+    }
     if (paths.isEmpty()) return;
 
     if (!scanner) {

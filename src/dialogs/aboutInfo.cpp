@@ -52,7 +52,10 @@ void AboutInfo::setupUi()
     layout->addWidget(iconLabel);
 
     QLabel *titleLabel = new QLabel("MediaSonic", this);
-    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold;");
+    QFont tf = titleLabel->font();
+    tf.setPointSize(tf.pointSize() + 4);
+    tf.setBold(true);
+    titleLabel->setFont(tf);
     titleLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(titleLabel);
 
