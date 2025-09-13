@@ -21,12 +21,21 @@
 
 #include "application.h"
 #include "mainwindow.h"
+#ifdef __has_include
+#  if __has_include("nse.h")
+#    include "nse.h"
+#    define MS_HAVE_ATMO 1
+#  endif
+#endif
 #include <QFontDatabase>
 #include <QDir>
 #include <KLocalizedString>
 #include "models/track.h"
 #include <QDateTime>
 #include <QTextStream>
+#include <QFile>
+#include <QStandardPaths>
+#include <QDir>
 
 static void msMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
 {
@@ -71,6 +80,30 @@ int main(int argc, char *argv[])
     } else {
         qDebug() << "Failed to load DS-Digital font, using system fallback";
     }
+
+    // Apply Atmo NSE style if available (pretty everywhere; native on SynOS)
+#ifdef MS_HAVE_ATMO
+    try {
+        // Allow users to opt-out via env var
+        if (qEnvironmentVariable("MS_NO_NSE").isEmpty()) {
+            qApp->setStyle(new NSE::Style());
+        }
+        // Ensure a config is present for NSE so the look matches expectations
+        const QString userDir = QDir::homePath() + "/.config/NSE";
+        const QString userConf = userDir + "/NSE.conf";
+        if (!QFile::exists(userConf)) {
+            QDir().mkpath(userDir);
+            // Try to copy from the sibling Atmo-Desktop checkout
+            const QString bundled = QCoreApplication::applicationDirPath() + "/../3rdparty/atmo/NSE.conf"; // unlikely
+            QString fallback = QStringLiteral("%1/NSE.conf").arg(QStringLiteral("/home/phenom/Atmo-Desktop"));
+            QString src;
+            if (QFile::exists(bundled)) src = bundled; else if (QFile::exists(fallback)) src = fallback;
+            if (!src.isEmpty()) QFile::copy(src, userConf);
+        }
+    } catch (...) {
+        // Fallback silently to platform default style
+    }
+#endif
 
     // Ensure only one instance of the application is running
     if (app.isRunning()) {

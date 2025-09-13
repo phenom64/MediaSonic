@@ -33,6 +33,7 @@
 #include <QDebug>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
+#include <QToolBar>
 #include <QGraphicsDropShadowEffect>
 #include <QGraphicsOpacityEffect>
 #include <QTime>
@@ -245,14 +246,18 @@ void TopBar::createGradients()
 void TopBar::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
-    
+    // When hosted inside a QToolBar, let UNO/style paint the background
+    if (qobject_cast<QToolBar*>(parentWidget())) {
+        return; // transparent background to blend with UNO
+    }
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Draw background gradient
+    // Draw background gradient for standalone usage
     painter.fillRect(rect(), *backgroundGradient);
 
-    // Draw subtle border
+    // Subtle bottom border
     painter.setPen(QPen(QColor(180, 180, 180), 1));
     painter.drawLine(0, height() - 1, width(), height() - 1);
 }

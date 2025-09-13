@@ -40,6 +40,9 @@ message(STATUS "MS_DEBUG: ${MS_DEBUG}")
 
 # Find necessary Qt5 packages
 find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets Concurrent Xml REQUIRED)
+# Optional Qt modules used by Atmo (UNO/style)
+find_package(Qt5DBus QUIET)
+find_package(Qt5X11Extras QUIET)
 list(APPEND CMAKE_MODULE_PATH "/usr/share/ECM/modules")
 list(APPEND CMAKE_MODULE_PATH "/usr/share/ECM/find-modules")
 find_package(KF5 COMPONENTS I18n CoreAddons WidgetsAddons KIO REQUIRED)
@@ -65,6 +68,8 @@ set(PROJECT_SOURCES
     src/gfx/fx.h
     src/ui/atmo_style.cpp
     src/ui/atmo_style.h
+    src/ui/nse_uno.cpp
+    src/ui/nse_uno.h
     # Models
     src/models/track.h
     src/models/trackmodel.cpp
@@ -98,6 +103,51 @@ add_executable(MediaSonic ${PROJECT_SOURCES})
 # Add the src directory to the include path
 target_include_directories(MediaSonic PRIVATE src)
 
+# --- Atmo NSE integration (UNO + style) ---
+# Prefer fetching from GitHub; allow override with -DATMO_DIR=... to use a local checkout.
+option(ATMO_USE_FETCH "Fetch Atmo-Desktop with FetchContent" ON)
+set(ATMO_GIT_URL "https://github.com/phenom64/Atmo-Desktop.git" CACHE STRING "Atmo-Desktop Git URL")
+set(ATMO_GIT_TAG "master" CACHE STRING "Atmo-Desktop Git ref (branch/tag/sha)")
+
+set(_HAVE_ATMO OFF)
+set(_ATMO_SOURCE "")
+
+if(ATMO_DIR AND EXISTS "${ATMO_DIR}/CMakeLists.txt")
+  set(_HAVE_ATMO ON)
+  set(_ATMO_SOURCE "${ATMO_DIR}")
+  message(STATUS "Integrating Atmo from ATMO_DIR=${ATMO_DIR}")
+elseif(ATMO_USE_FETCH)
+  include(FetchContent)
+  message(STATUS "Fetching Atmo-Desktop from ${ATMO_GIT_URL} (${ATMO_GIT_TAG})")
+  FetchContent_Declare(
+    atmo
+    GIT_REPOSITORY ${ATMO_GIT_URL}
+    GIT_TAG        ${ATMO_GIT_TAG}
+    GIT_SHALLOW    OFF
+    UPDATE_DISCONNECTED ON
+  )
+  FetchContent_MakeAvailable(atmo)
+  set(_HAVE_ATMO ON)
+  set(_ATMO_SOURCE ${atmo_SOURCE_DIR})
+endif()
+
+if(_HAVE_ATMO)
+  if(Qt5DBus_FOUND)
+    set(QTDBUS_FOUND ON)
+  endif()
+  # Build the Atmo project under a neat path in the build tree
+  add_subdirectory("${_ATMO_SOURCE}" "${CMAKE_BINARY_DIR}/NSE/atmo")
+
+  target_include_directories(MediaSonic PRIVATE
+    "${_ATMO_SOURCE}"
+    "${_ATMO_SOURCE}/atmolib"
+    "${_ATMO_SOURCE}/config"
+  )
+  target_link_libraries(MediaSonic atmolib nsesettings atmo)
+else()
+  message(WARNING "Atmo-Desktop missing: define ATMO_DIR or enable ATMO_USE_FETCH to get UNO + style.")
+endif()
+
 # Link the necessary libraries
 target_link_libraries(MediaSonic
     Qt5::Core
@@ -107,6 +157,9 @@ target_link_libraries(MediaSonic
     Qt5::MultimediaWidgets
     Qt5::Concurrent
     Qt5::Xml
+    # Optional Qt modules (safe to include even if not found)
+    $<$<TARGET_EXISTS:Qt5::DBus>:Qt5::DBus>
+    $<$<TARGET_EXISTS:Qt5::X11Extras>:Qt5::X11Extras>
     KF5::I18n
     KF5::CoreAddons
     KF5::WidgetsAddons
@@ -154,5 +207,7 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
     IMMEDIATE @ONLY)
-add_custom_target(uninstall
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+if(NOT TARGET uninstall)
+  add_custom_target(uninstall
+      COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()

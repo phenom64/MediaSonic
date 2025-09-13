@@ -26,6 +26,8 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
+#include <QToolBar>
+#include <QWidgetAction>
 #include <QFileDialog>
 #include <QSplitter>
 #include <QTreeView>
@@ -65,6 +67,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QStandardPaths>
+#include "ui/nse_uno.h"
 
 // StarRatingDelegate for the Rating column
 class StarRatingDelegate : public QStyledItemDelegate {
@@ -193,9 +196,14 @@ void MainWindow::setupUi()
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // TopBar (all playback controls/info go here)
-    topBar = new TopBar(this);
-    mainLayout->addWidget(topBar);
+    // UNO toolbar hosting our TopBar and centered window title
+    NSEUI::NSEUnoToolBar *unoToolBar = new NSEUI::NSEUnoToolBar(this, this);
+    // Create TopBar and add into toolbar
+    topBar = new TopBar(unoToolBar);
+    topBar->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    unoToolBar->addWidget(topBar);
+    // Centered window title is handled inside NSEUnoToolBar
+    addToolBar(Qt::TopToolBarArea, unoToolBar);
 
     // View Header (Albums, Artists, Genres, Composers buttons)
     viewHeader = new QWidget(this);
